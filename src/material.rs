@@ -62,14 +62,20 @@ impl Material for Lambert {
 
 pub struct Metal {
 	albedo: Vector3,
-	fuzziness: f32,
+	roughness: f32,
 }
 
 impl Metal {
-	pub fn new(albedo: Vector3, fuzziness: f32) -> Metal {
+	pub fn new(albedo: Vector3, roughness: f32) -> Metal {
 		Metal {
 			albedo: albedo,
-			fuzziness: fuzziness,
+			roughness: if roughness < 0_f32 {
+				0_f32
+			} else if roughness > 1_f32 {
+				1_f32
+			} else {
+				roughness
+			},
 		}
 	}
 }
@@ -82,7 +88,7 @@ impl Material for Metal {
 		normal: &Vector3,
 	) -> Option<(Vector3, Ray)> {
 		let reflected = reflect(in_ray.dir.normalized(), *normal);
-		let out_ray_dir = reflected + self.fuzziness * utils::unit_sphere_random();
+		let out_ray_dir = reflected + self.roughness * utils::unit_sphere_random();
 
 		if out_ray_dir.dot(*normal) > 0.0_f32 {
 			Some((self.albedo, Ray::new(*hit_point, out_ray_dir)))

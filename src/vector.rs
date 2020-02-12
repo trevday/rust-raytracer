@@ -1,5 +1,9 @@
+use serde::{Deserialize, Serialize};
+use std::convert;
 use std::ops;
 
+#[derive(Serialize, Deserialize)]
+#[serde(try_from = "Vec<f32>")]
 pub struct Vector3 {
 	pub x: f32,
 	pub y: f32,
@@ -145,6 +149,18 @@ impl ops::Div<Vector3> for f32 {
 			x: self / rhs.x,
 			y: self / rhs.y,
 			z: self / rhs.z,
+		}
+	}
+}
+
+impl convert::TryFrom<Vec<f32>> for Vector3 {
+	type Error = &'static str;
+
+	fn try_from(vec: Vec<f32>) -> Result<Self, Self::Error> {
+		if vec.len() != 3 {
+			Err("Deserializing in to Vector3 requires a Vec of length 3!")
+		} else {
+			Ok(Vector3::new(vec[0], vec[1], vec[2]))
 		}
 	}
 }

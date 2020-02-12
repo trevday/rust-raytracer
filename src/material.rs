@@ -1,7 +1,10 @@
 use crate::ray::Ray;
 use crate::utils;
 use crate::vector::Vector3;
+
 use rand;
+use serde::{Deserialize, Serialize};
+use typetag;
 
 fn reflect(v: Vector3, n: Vector3) -> Vector3 {
 	v - 2.0_f32 * v.dot(n) * n
@@ -25,6 +28,7 @@ fn schlick(cosine: f32, index: f32) -> f32 {
 	r0 + (1.0_f32 - r0) * (1.0_f32 - cosine).powi(5)
 }
 
+#[typetag::serde(tag = "type")]
 pub trait Material {
 	// Because of the Rust compiler's optimizations, including use of inlining, implicit pointer
 	// arguments, and return value optimization, I think it is ok for functions like this to use
@@ -38,16 +42,12 @@ pub trait Material {
 	) -> Option<(Vector3, Ray)>;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Lambert {
 	albedo: Vector3,
 }
 
-impl Lambert {
-	pub fn new(albedo: Vector3) -> Lambert {
-		Lambert { albedo: albedo }
-	}
-}
-
+#[typetag::serde]
 impl Material for Lambert {
 	fn scatter(
 		&self,
@@ -60,26 +60,13 @@ impl Material for Lambert {
 	}
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Metal {
 	albedo: Vector3,
 	roughness: f32,
 }
 
-impl Metal {
-	pub fn new(albedo: Vector3, roughness: f32) -> Metal {
-		Metal {
-			albedo: albedo,
-			roughness: if roughness < 0_f32 {
-				0_f32
-			} else if roughness > 1_f32 {
-				1_f32
-			} else {
-				roughness
-			},
-		}
-	}
-}
-
+#[typetag::serde]
 impl Material for Metal {
 	fn scatter(
 		&self,
@@ -87,8 +74,18 @@ impl Material for Metal {
 		hit_point: &Vector3,
 		normal: &Vector3,
 	) -> Option<(Vector3, Ray)> {
+		// TODO: Perform this check and constraint upon JSON
+		// deserialization.
+		let r = if self.roughness < 0_f32 {
+			0_f32
+		} else if self.roughness > 1_f32 {
+			1_f32
+		} else {
+			self.roughness
+		};
+
 		let reflected = reflect(in_ray.dir.normalized(), *normal);
-		let out_ray_dir = reflected + self.roughness * utils::unit_sphere_random();
+		let out_ray_dir = reflected + r * utils::unit_sphere_random();
 
 		if out_ray_dir.dot(*normal) > 0.0_f32 {
 			Some((self.albedo, Ray::new(*hit_point, out_ray_dir)))
@@ -98,18 +95,12 @@ impl Material for Metal {
 	}
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Dielectric {
 	refractive_index: f32,
 }
 
-impl Dielectric {
-	pub fn new(refractive_index: f32) -> Dielectric {
-		Dielectric {
-			refractive_index: refractive_index,
-		}
-	}
-}
-
+#[typetag::serde]
 impl Material for Dielectric {
 	fn scatter(
 		&self,

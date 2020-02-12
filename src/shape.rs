@@ -2,6 +2,10 @@ use crate::material::Material;
 use crate::ray::Ray;
 use crate::vector::Vector3;
 
+use serde::{Deserialize, Serialize};
+use typetag;
+
+#[typetag::serde(tag = "type")]
 pub trait Shape {
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
 	fn derive_normal(&self, point: &Vector3) -> Vector3;
@@ -13,7 +17,7 @@ const T_MIN: f32 = 0.001_f32;
 
 pub fn trace(
 	r: &Ray,
-	shapes: &Vec<&dyn Shape>,
+	shapes: &Vec<Box<dyn Shape>>,
 	bg_func: &dyn Fn(&Ray) -> Vector3,
 	depth: i32,
 ) -> Vector3 {
@@ -21,11 +25,11 @@ pub fn trace(
 	let mut hit_shape: Option<&dyn Shape> = None;
 
 	// Check shapes to see if we have a hit
-	for shape in shapes.iter() {
+	for shape in shapes {
 		match shape.hit(r, T_MIN, t_max) {
 			Some(t) => {
 				t_max = t;
-				hit_shape = Some(*shape);
+				hit_shape = Some(&(*(*shape)));
 			}
 			// No-op
 			None => {}
@@ -59,6 +63,7 @@ pub fn trace(
 	return bg_func(r);
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
 	center: Vector3,
 	radius: f32,
@@ -68,19 +73,13 @@ pub struct Sphere {
 	// troublesome, and especially large variants may make the required size of each
 	// Material too large. The Box + trait object allows easier creation of Material
 	// variants, but introduces a small performance penalty to read from Heap memory.
+	//
+	// TODO: Further investigate Box-Enum, performance vs. memory tradeoff if
+	// optimization is required.
 	material: Box<dyn Material>,
 }
 
-impl Sphere {
-	pub fn new(center: Vector3, radius: f32, mat: Box<dyn Material>) -> Sphere {
-		Sphere {
-			center: center,
-			radius: radius,
-			material: mat,
-		}
-	}
-}
-
+#[typetag::serde]
 impl Shape for Sphere {
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32> {
 		let towards_origin = r.origin - self.center;

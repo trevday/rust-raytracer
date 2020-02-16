@@ -27,13 +27,8 @@
 	},
 	"Shapes": [
 		{
-			"type": "Sphere",
-			"center": [
-				0,
-				0,
-				-1
-			],
-			"radius": 0.5,
+			"type": "Triangle",
+			"enable_backface_culling": false,
 			"material": {
 				"type": "Lambert",
 				"albedo": [
@@ -41,7 +36,22 @@
 					0.2,
 					0.5
 				]
-			}
+			},
+			"v0": [
+				0,
+				0.5,
+				-1
+			],
+			"v1": [
+				-0.5,
+				-0.2,
+				-1
+			],
+			"v2": [
+				0.5,
+				-0.5,
+				-1
+			]
 		},
 		{
 			"type": "Sphere",

@@ -8,7 +8,7 @@ use typetag;
 #[typetag::serde(tag = "type")]
 pub trait Shape {
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
-	fn derive_normal(&self, point: &Vector3) -> Vector3;
+	fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3;
 	fn get_material(&self) -> &Box<dyn Material>;
 }
 
@@ -40,9 +40,9 @@ pub fn trace(
 		match hit_shape {
 			// Some if we have a hit
 			Some(s) => {
-				let hit_point = r.point_at(t_max);
-				let normal = s.derive_normal(&hit_point);
+				let normal = s.derive_normal(r, t_max);
 
+				let hit_point = r.point_at(t_max);
 				match s.get_material().scatter(r, &hit_point, &normal) {
 					// Some if we scattered
 					Some((attenuation, scattered_ray)) => {
@@ -101,8 +101,89 @@ impl Shape for Sphere {
 		return None;
 	}
 
-	fn derive_normal(&self, point: &Vector3) -> Vector3 {
-		((*point - self.center) / self.radius).normalized()
+	fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3 {
+		((r.point_at(t_hit) - self.center) / self.radius).normalized()
+	}
+
+	fn get_material(&self) -> &Box<dyn Material> {
+		&self.material
+	}
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Triangle {
+	enable_backface_culling: bool,
+	material: Box<dyn Material>,
+	v0: Vector3,
+	v1: Vector3,
+	v2: Vector3,
+}
+
+#[typetag::serde]
+impl Shape for Triangle {
+	// Uses Moller-Trumbore ray-triangle intersection algorithm.
+	// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+	//
+	// Backface culling expects a counter-clockwise winding order.
+	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32> {
+		let vertex0 = self.v0;
+		let vertex1 = self.v1;
+		let vertex2 = self.v2;
+
+		let edge_1 = vertex1 - vertex0;
+		let edge_2 = vertex2 - vertex0;
+		let p_vec = r.dir.cross(edge_2);
+		let determinant = edge_1.dot(p_vec);
+
+		if !self.enable_backface_culling
+			&& determinant > -std::f32::EPSILON
+			&& determinant < std::f32::EPSILON
+		{
+			return None; // Indicates parallel ray and triangle
+		} else if self.enable_backface_culling && determinant < std::f32::EPSILON {
+			return None; // Either parallel or ray approaching triangle from back
+		}
+
+		let inverse_determinant = 1.0_f32 / determinant;
+		let t_vec = r.origin - vertex0;
+		let u = t_vec.dot(p_vec) * inverse_determinant;
+		if u < 0.0_f32 || u > 1.0_f32 {
+			return None;
+		}
+
+		let q_vec = t_vec.cross(edge_1);
+		let v = r.dir.dot(q_vec) * inverse_determinant;
+		if v < 0.0_f32 || u + v > 1.0_f32 {
+			return None;
+		}
+
+		let t_hit = edge_2.dot(q_vec) * inverse_determinant;
+		if t_hit < t_max && t_hit > t_min {
+			return Some(t_hit);
+		}
+		return None;
+	}
+
+	fn derive_normal(&self, r: &Ray, _t_hit: f32) -> Vector3 {
+		let vertex0 = self.v0;
+		let vertex1 = self.v1;
+		let vertex2 = self.v2;
+
+		// TODO: Some repeated work here to derive the normal.
+		// Is it worth combining the normal calculation logic
+		// into the hit function? Other shapes do not have
+		// repeated work (Sphere) so it's a tradeoff
+		// for different types of shapes.
+		let edge_1 = vertex1 - vertex0;
+		let edge_2 = vertex2 - vertex0;
+		let p_vec = r.dir.cross(edge_2);
+		let determinant = edge_1.dot(p_vec);
+
+		let mut normal = edge_1.cross(edge_2).normalized();
+		if determinant < 0.0_f32 {
+			normal = -normal; // Ray came from the back so reverse the normal
+		}
+		return normal;
 	}
 
 	fn get_material(&self) -> &Box<dyn Material> {

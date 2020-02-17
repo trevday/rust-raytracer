@@ -6,7 +6,7 @@
 	},
 	"Camera": {
 		"position": [
-			0,
+			1,
 			0,
 			1
 		],
@@ -23,35 +23,45 @@
 		"fov": 90,
 		"aspect_ratio": 1.3,
 		"aperture": 0.3,
-		"focus_distance": 2.0
+		"focus_distance": 1.3
+	},
+	"Materials": {
+		"Lambert1": {
+			"type": "Lambert",
+			"albedo": [
+				0.8,
+				0.8,
+				0.0
+			]
+		},
+		"Lambert2": {
+			"type": "Lambert",
+			"albedo": [
+				0.8,
+				0.0,
+				0.2
+			]
+		},
+		"Metal1": {
+			"type": "Metal",
+			"albedo": [
+				0.8,
+				0.6,
+				0.2
+			],
+			"roughness": 0
+		},
+		"Dielectric1": {
+			"type": "Dielectric",
+			"refractive_index": 1.5
+		}
 	},
 	"Shapes": [
 		{
-			"type": "Triangle",
+			"type": "Mesh",
+			"file_path": "Cube.obj",
 			"enable_backface_culling": false,
-			"material": {
-				"type": "Lambert",
-				"albedo": [
-					0.1,
-					0.2,
-					0.5
-				]
-			},
-			"v0": [
-				0,
-				0.5,
-				-1
-			],
-			"v1": [
-				-0.5,
-				-0.2,
-				-1
-			],
-			"v2": [
-				0.5,
-				-0.5,
-				-1
-			]
+			"material": "Lambert2"
 		},
 		{
 			"type": "Sphere",
@@ -61,14 +71,7 @@
 				-1
 			],
 			"radius": 100,
-			"material": {
-				"type": "Lambert",
-				"albedo": [
-					0.8,
-					0.8,
-					0.0
-				]
-			}
+			"material": "Lambert1"
 		},
 		{
 			"type": "Sphere",
@@ -78,15 +81,7 @@
 				-1
 			],
 			"radius": 0.5,
-			"material": {
-				"type": "Metal",
-				"albedo": [
-					0.8,
-					0.6,
-					0.2
-				],
-				"roughness": 0
-			}
+			"material": "Metal1"
 		},
 		{
 			"type": "Sphere",
@@ -96,10 +91,7 @@
 				-1
 			],
 			"radius": 0.5,
-			"material": {
-				"type": "Dielectric",
-				"refractive_index": 1.5
-			}
+			"material": "Dielectric1"
 		},
 		{
 			"type": "Sphere",
@@ -109,10 +101,7 @@
 				-1
 			],
 			"radius": -0.45,
-			"material": {
-				"type": "Dielectric",
-				"refractive_index": 1.5
-			}
+			"material": "Dielectric1"
 		}
 	]
 }

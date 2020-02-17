@@ -2,14 +2,12 @@ use crate::material::Material;
 use crate::ray::Ray;
 use crate::vector::Vector3;
 
-use serde::{Deserialize, Serialize};
-use typetag;
+use std::rc::Rc;
 
-#[typetag::serde(tag = "type")]
 pub trait Shape {
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
 	fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3;
-	fn get_material(&self) -> &Box<dyn Material>;
+	fn get_material(&self) -> &Rc<dyn Material>;
 }
 
 const MAX_DEPTH: i32 = 50;
@@ -63,23 +61,31 @@ pub fn trace(
 	return bg_func(r);
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Sphere {
 	center: Vector3,
 	radius: f32,
-	// NOTE: There is a tradeoff here between making an enum struct and a Box to a trait object.
+	// NOTE: There is a tradeoff here between making an enum struct and a pointer to a trait object.
 	// The enum struct would be slightly more efficient as it is immediately available
 	// for use without having to reach into the Heap, but adding new variants is more
 	// troublesome, and especially large variants may make the required size of each
-	// Material too large. The Box + trait object allows easier creation of Material
+	// Material too large. The Rc + trait object allows easier creation of Material
 	// variants, but introduces a small performance penalty to read from Heap memory.
 	//
-	// TODO: Further investigate Box-Enum, performance vs. memory tradeoff if
+	// TODO: Further investigate Pointer-Enum, performance vs. memory tradeoff if
 	// optimization is required.
-	material: Box<dyn Material>,
+	material: Rc<dyn Material>,
 }
 
-#[typetag::serde]
+impl Sphere {
+	pub fn new(center: Vector3, radius: f32, mat: Rc<dyn Material>) -> Sphere {
+		Sphere {
+			center: center,
+			radius: radius,
+			material: mat,
+		}
+	}
+}
+
 impl Shape for Sphere {
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32> {
 		let towards_origin = r.origin - self.center;
@@ -105,42 +111,87 @@ impl Shape for Sphere {
 		((r.point_at(t_hit) - self.center) / self.radius).normalized()
 	}
 
-	fn get_material(&self) -> &Box<dyn Material> {
+	fn get_material(&self) -> &Rc<dyn Material> {
 		&self.material
 	}
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Triangle {
+pub struct TriangleMesh {
+	vertices: Vec<Vector3>,
 	enable_backface_culling: bool,
-	material: Box<dyn Material>,
-	v0: Vector3,
-	v1: Vector3,
-	v2: Vector3,
+	material: Rc<dyn Material>,
 }
 
-#[typetag::serde]
+impl TriangleMesh {
+	pub fn new(
+		vertices: Vec<Vector3>,
+		enable_backface_culling: bool,
+		material: Rc<dyn Material>,
+	) -> TriangleMesh {
+		TriangleMesh {
+			vertices: vertices,
+			enable_backface_culling: enable_backface_culling,
+			material: material,
+		}
+	}
+}
+
+pub struct Triangle {
+	triangle_mesh: Rc<TriangleMesh>,
+	v0: usize,
+	v1: usize,
+	v2: usize,
+}
+
+impl Triangle {
+	pub fn new(
+		mesh: Rc<TriangleMesh>,
+		v0: usize,
+		v1: usize,
+		v2: usize,
+	) -> Result<Triangle, String> {
+		if mesh.vertices.is_empty()
+			|| mesh.vertices.len() - 1 < v0
+			|| mesh.vertices.len() - 1 < v1
+			|| mesh.vertices.len() - 1 < v2
+		{
+			return Err(format!(
+					"Triangle mesh has length {} but attempted to make a Triangle with indices {}, {}, {}.",
+					mesh.vertices.len(),
+					v0,
+					v1,
+					v2));
+		}
+		Ok(Triangle {
+			triangle_mesh: mesh,
+			v0: v0,
+			v1: v1,
+			v2: v2,
+		})
+	}
+}
+
 impl Shape for Triangle {
 	// Uses Moller-Trumbore ray-triangle intersection algorithm.
 	// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
 	//
 	// Backface culling expects a counter-clockwise winding order.
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32> {
-		let vertex0 = self.v0;
-		let vertex1 = self.v1;
-		let vertex2 = self.v2;
+		let vertex0 = self.triangle_mesh.vertices[self.v0];
+		let vertex1 = self.triangle_mesh.vertices[self.v1];
+		let vertex2 = self.triangle_mesh.vertices[self.v2];
 
 		let edge_1 = vertex1 - vertex0;
 		let edge_2 = vertex2 - vertex0;
 		let p_vec = r.dir.cross(edge_2);
 		let determinant = edge_1.dot(p_vec);
 
-		if !self.enable_backface_culling
+		if !self.triangle_mesh.enable_backface_culling
 			&& determinant > -std::f32::EPSILON
 			&& determinant < std::f32::EPSILON
 		{
 			return None; // Indicates parallel ray and triangle
-		} else if self.enable_backface_culling && determinant < std::f32::EPSILON {
+		} else if self.triangle_mesh.enable_backface_culling && determinant < std::f32::EPSILON {
 			return None; // Either parallel or ray approaching triangle from back
 		}
 
@@ -165,9 +216,9 @@ impl Shape for Triangle {
 	}
 
 	fn derive_normal(&self, r: &Ray, _t_hit: f32) -> Vector3 {
-		let vertex0 = self.v0;
-		let vertex1 = self.v1;
-		let vertex2 = self.v2;
+		let vertex0 = self.triangle_mesh.vertices[self.v0];
+		let vertex1 = self.triangle_mesh.vertices[self.v1];
+		let vertex2 = self.triangle_mesh.vertices[self.v2];
 
 		// TODO: Some repeated work here to derive the normal.
 		// Is it worth combining the normal calculation logic
@@ -186,7 +237,7 @@ impl Shape for Triangle {
 		return normal;
 	}
 
-	fn get_material(&self) -> &Box<dyn Material> {
-		&self.material
+	fn get_material(&self) -> &Rc<dyn Material> {
+		&self.triangle_mesh.material
 	}
 }

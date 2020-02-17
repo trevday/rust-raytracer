@@ -11,12 +11,10 @@ mod vector;
 use image::png::PNGEncoder;
 use image::ColorType;
 use rand;
-use serde_json;
-use std::{convert::TryInto, env, fs, fs::OpenOptions, process};
+use std::{convert::TryInto, env, fs, fs::OpenOptions, path, process};
 
 // Use statements for local modules
 use crate::ray::Ray;
-use crate::scene::Scene;
 use crate::vector::Vector3;
 
 // Constants
@@ -31,9 +29,16 @@ fn main() {
     }
 
     // Read the scene spec file
-    let scene_str = fs::read_to_string(&args[1]).expect("Failed to read scene spec file.");
-    let scene_spec: Scene =
-        serde_json::from_str(&scene_str).expect("Failed to parse scene spec JSON.");
+    let scene_spec_path = path::Path::new(&args[1]);
+    let scene_str = fs::read_to_string(&scene_spec_path).expect("Failed to read scene spec file.");
+    let scene_spec = scene::deserialize(
+        &scene_str,
+        match scene_spec_path.parent() {
+            Some(p) => p,
+            None => path::Path::new("/"),
+        },
+    )
+    .expect("Failed to parse scene spec JSON.");
 
     // Create the file according to input
     let out_file = OpenOptions::new()

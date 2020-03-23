@@ -41,6 +41,22 @@ impl Vector3 {
 		Vector3 { x: x, y: y, z: z }
 	}
 
+	pub fn min(v1: Vector3, v2: Vector3) -> Vector3 {
+		Vector3 {
+			x: if v1.x < v2.x { v1.x } else { v2.x },
+			y: if v1.y < v2.y { v1.y } else { v2.y },
+			z: if v1.z < v2.z { v1.z } else { v2.z },
+		}
+	}
+
+	pub fn max(v1: Vector3, v2: Vector3) -> Vector3 {
+		Vector3 {
+			x: if v1.x > v2.x { v1.x } else { v2.x },
+			y: if v1.y > v2.y { v1.y } else { v2.y },
+			z: if v1.z > v2.z { v1.z } else { v2.z },
+		}
+	}
+
 	pub fn dot(self, other: Vector3) -> f32 {
 		(self.x * other.x) + (self.y * other.y) + (self.z * other.z)
 	}
@@ -170,5 +186,29 @@ impl convert::From<obj::Vertex> for Vector3 {
 	fn from(vertex: obj::Vertex) -> Self {
 		// TODO: Expand precision?
 		Vector3::new(vertex.x as f32, vertex.y as f32, vertex.z as f32)
+	}
+}
+
+pub enum Axis {
+	X,
+	Y,
+	Z,
+}
+
+impl Copy for Axis {}
+impl Clone for Axis {
+	fn clone(&self) -> Axis {
+		*self
+	}
+}
+
+impl ops::Index<Axis> for Vector3 {
+	type Output = f32;
+	fn index(&self, index: Axis) -> &f32 {
+		match index {
+			Axis::X => &self.x,
+			Axis::Y => &self.y,
+			Axis::Z => &self.z,
+		}
 	}
 }

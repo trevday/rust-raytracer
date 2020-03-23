@@ -1,3 +1,4 @@
+use crate::aggregate::{new_bvh, Aggregate};
 use crate::camera::Camera;
 use crate::material::Material;
 use crate::shape;
@@ -12,7 +13,7 @@ use wavefront_obj::obj;
 pub struct Scene {
 	pub logistics: Logistics,
 	pub camera: Camera,
-	pub shapes: Vec<Box<dyn Shape>>,
+	pub shape_aggregate: Box<dyn Aggregate>,
 }
 
 #[derive(Deserialize)]
@@ -92,10 +93,21 @@ pub fn deserialize(data: &str, spec_dir: &path::Path) -> Result<Scene, Deseriali
 		deserialize_shape(shape, spec_dir, &materials, &mut shapes)?;
 	}
 
+	// Break the shapes down into the aggregate structure
+	let aggregate_type = match get_required_key(&top_level, "Aggregate")?.as_str() {
+		Some(t) => t,
+		None => {
+			return Err(DeserializeError::LocalError(String::from(
+				"'Aggregate' is not a string.",
+			)))
+		}
+	};
+	let shape_aggregate = create_aggregate(aggregate_type, shapes)?;
+
 	Ok(Scene {
 		logistics: logistics,
 		camera: camera,
-		shapes: shapes,
+		shape_aggregate: shape_aggregate,
 	})
 }
 
@@ -254,4 +266,21 @@ fn deserialize_mesh(
 		}
 	}
 	return Ok(());
+}
+
+// Aggregates
+fn create_aggregate(
+	aggregate_type: &str,
+	shapes: Vec<Box<dyn Shape>>,
+) -> Result<Box<dyn Aggregate>, DeserializeError> {
+	match aggregate_type {
+		"List" => return Ok(Box::new(shapes)),
+		"BVH" => return Ok(new_bvh(shapes)),
+		_ => {
+			return Err(DeserializeError::LocalError(format!(
+				"Unknown Aggregate 'type' {} given.",
+				aggregate_type
+			)))
+		}
+	}
 }

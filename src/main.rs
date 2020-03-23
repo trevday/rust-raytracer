@@ -1,4 +1,5 @@
 // Local modules
+mod aggregate;
 mod camera;
 mod material;
 mod ray;
@@ -40,6 +41,11 @@ fn main() {
     )
     .expect("Failed to parse scene spec JSON.");
 
+    if &args[2] == "CONSTRUCTION_ONLY" {
+        println!("Finished construction!");
+        process::exit(0);
+    }
+
     // Create the file according to input
     let out_file = OpenOptions::new()
         .write(true)
@@ -65,7 +71,8 @@ fn main() {
                 let v = ((res_y - y) as f32 + rand::random::<f32>()) / res_y as f32;
 
                 let r = scene_spec.camera.get_ray(u, v);
-                color = color + shape::trace(&r, &scene_spec.shapes, &background, 0);
+                color =
+                    color + aggregate::trace(&r, &(*scene_spec.shape_aggregate), &background, 0);
             }
             color = color / samples as f32;
             color = Vector3::new(color.x.sqrt(), color.y.sqrt(), color.z.sqrt());

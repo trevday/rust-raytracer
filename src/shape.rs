@@ -1,3 +1,4 @@
+use crate::aggregate::AABB;
 use crate::material::Material;
 use crate::ray::Ray;
 use crate::vector::Vector3;
@@ -8,57 +9,7 @@ pub trait Shape {
 	fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
 	fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3;
 	fn get_material(&self) -> &Rc<dyn Material>;
-}
-
-const MAX_DEPTH: i32 = 50;
-const T_MIN: f32 = 0.001_f32;
-
-pub fn trace(
-	r: &Ray,
-	shapes: &Vec<Box<dyn Shape>>,
-	bg_func: &dyn Fn(&Ray) -> Vector3,
-	depth: i32,
-) -> Vector3 {
-	let mut t_max = std::f32::MAX;
-	let mut hit_shape: Option<&dyn Shape> = None;
-
-	// Check shapes to see if we have a hit
-	for shape in shapes {
-		match shape.hit(r, T_MIN, t_max) {
-			Some(t) => {
-				t_max = t;
-				hit_shape = Some(&(*(*shape)));
-			}
-			// No-op
-			None => {}
-		}
-	}
-
-	if depth < MAX_DEPTH {
-		match hit_shape {
-			// Some if we have a hit
-			Some(s) => {
-				let normal = s.derive_normal(r, t_max);
-
-				let hit_point = r.point_at(t_max);
-				match s.get_material().scatter(r, &hit_point, &normal) {
-					// Some if we scattered
-					Some((attenuation, scattered_ray)) => {
-						// Recursive case
-						return attenuation * trace(&scattered_ray, shapes, bg_func, depth + 1);
-					}
-					None => {
-						return Vector3::new_empty();
-					}
-				}
-			}
-			// None if we don't, no-op
-			None => {}
-		}
-	}
-
-	// Return BG color
-	return bg_func(r);
+	fn get_bounding_box(&self) -> AABB;
 }
 
 pub struct Sphere {
@@ -113,6 +64,13 @@ impl Shape for Sphere {
 
 	fn get_material(&self) -> &Rc<dyn Material> {
 		&self.material
+	}
+
+	fn get_bounding_box(&self) -> AABB {
+		AABB::new(
+			self.center - Vector3::new(self.radius, self.radius, self.radius),
+			self.center + Vector3::new(self.radius, self.radius, self.radius),
+		)
 	}
 }
 
@@ -239,5 +197,16 @@ impl Shape for Triangle {
 
 	fn get_material(&self) -> &Rc<dyn Material> {
 		&self.triangle_mesh.material
+	}
+
+	fn get_bounding_box(&self) -> AABB {
+		let vertex0 = self.triangle_mesh.vertices[self.v0];
+		let vertex1 = self.triangle_mesh.vertices[self.v1];
+		let vertex2 = self.triangle_mesh.vertices[self.v2];
+
+		AABB::new(
+			Vector3::min(vertex0, Vector3::min(vertex1, vertex2)),
+			Vector3::max(vertex0, Vector3::max(vertex1, vertex2)),
+		)
 	}
 }

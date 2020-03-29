@@ -124,6 +124,7 @@ struct BVHLeaf {
 }
 struct BVHNode {
     bounding_box: AABB,
+    cut_axis: Axis,
     // Left is implicitly always stored as this node's
     // index + 1. This is suitable for depth first
     // searching, which we will do for hit testing.
@@ -235,6 +236,7 @@ fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Box<dyn Shape>>) {
         // a moment when I know what my real right_offset value should be.
         bvh.push(BVHTypes::Node(BVHNode {
             bounding_box: AABB::new_empty(),
+            cut_axis: cut_axis,
             right_offset: 0,
         }));
         let node_idx = bvh.len() - 1;
@@ -246,6 +248,7 @@ fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Box<dyn Shape>>) {
         // a correct right_offset
         bvh[node_idx] = BVHTypes::Node(BVHNode {
             bounding_box: total_bounds,
+            cut_axis: cut_axis,
             // Offset is current length minus this node's index,
             // because we know we are going to add at least a
             // leaf to represent the right branch, and this leaf
@@ -316,20 +319,25 @@ impl Aggregate for BVH {
                     if !node.bounding_box.intersect(r, t_min, modified_t_max) {
                         continue;
                     }
-                    // TODO (performance): There is a micro-optimization I can do here where,
-                    // if I cache the axis this node was split along, I can determine which
-                    // of the two branches will intersect the ray first and perform the hit
-                    // test with that branch first. This makes it more likely the t_max
-                    // will be updated in such a way that the second branch is not even
-                    // hit tested beyond its bounding box.
-
-                    // "Push" new values to explore
-                    // Left Branch
-                    to_explore[to_explore_count] = cur_idx + 1_usize;
-                    to_explore_count += 1;
-                    // Right Branch
-                    to_explore[to_explore_count] = cur_idx + node.right_offset;
-                    to_explore_count += 1;
+                    // NOTE: This is a micro-optimization where the axis this node was
+                    // split along is cached so that the ray can be inspected and it
+                    // can be guessed which of the two branches is most likely to be
+                    // hit first.
+                    if r.dir[node.cut_axis] < 0.0_f32 {
+                        // Right Branch
+                        to_explore[to_explore_count] = cur_idx + node.right_offset;
+                        to_explore_count += 1;
+                        // Left Branch
+                        to_explore[to_explore_count] = cur_idx + 1_usize;
+                        to_explore_count += 1;
+                    } else {
+                        // Left Branch
+                        to_explore[to_explore_count] = cur_idx + 1_usize;
+                        to_explore_count += 1;
+                        // Right Branch
+                        to_explore[to_explore_count] = cur_idx + node.right_offset;
+                        to_explore_count += 1;
+                    }
                 }
             }
         }

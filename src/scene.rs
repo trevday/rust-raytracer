@@ -221,9 +221,15 @@ fn deserialize_mesh(
         for vert in object.vertices {
             converted_vertices.push(Vector3::from(vert));
         }
+        // Also need to convert the texture coordinates.
+        let mut converted_tex_coords = Vec::with_capacity(object.tex_vertices.len());
+        for tex in object.tex_vertices {
+            converted_tex_coords.push((tex.u as f32, tex.v as f32));
+        }
         // Create shared mesh, which all Triangles will reference.
         let t_mesh = Rc::new(shape::TriangleMesh::new(
             converted_vertices,
+            converted_tex_coords,
             mesh_desc.enable_backface_culling,
             Rc::clone(&materials[&mesh_desc.material]),
         ));
@@ -233,9 +239,9 @@ fn deserialize_mesh(
             for obj_shape in geom.shapes {
                 match obj_shape.primitive {
                     obj::Primitive::Triangle(v0, v1, v2) => {
-                        let (v_index0, _, _) = v0;
-                        let (v_index1, _, _) = v1;
-                        let (v_index2, _, _) = v2;
+                        let (v_index0, t_index0, _) = v0;
+                        let (v_index1, t_index1, _) = v1;
+                        let (v_index2, t_index2, _) = v2;
 
                         shapes.push(Box::new(
                             match shape::Triangle::new(
@@ -243,6 +249,9 @@ fn deserialize_mesh(
                                 v_index0,
                                 v_index1,
                                 v_index2,
+                                t_index0,
+                                t_index1,
+                                t_index2,
                             ) {
                                 Ok(t) => t,
                                 Err(e) => {

@@ -1,4 +1,5 @@
 use crate::ray::Ray;
+use crate::texture::Texture;
 use crate::utils;
 use crate::vector::Vector3;
 
@@ -39,12 +40,14 @@ pub trait Material {
         in_ray: &Ray,
         hit_point: &Vector3,
         normal: &Vector3,
+        u: f32,
+        v: f32,
     ) -> Option<(Vector3, Ray)>;
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Lambert {
-    albedo: Vector3,
+    albedo: Box<dyn Texture>,
 }
 
 #[typetag::serde]
@@ -54,15 +57,20 @@ impl Material for Lambert {
         _in_ray: &Ray,
         hit_point: &Vector3,
         normal: &Vector3,
+        u: f32,
+        v: f32,
     ) -> Option<(Vector3, Ray)> {
         let target = *hit_point + *normal + utils::unit_sphere_random();
-        Some((self.albedo, Ray::new(*hit_point, target - *hit_point)))
+        Some((
+            self.albedo.value(u, v, hit_point),
+            Ray::new(*hit_point, target - *hit_point),
+        ))
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Metal {
-    albedo: Vector3,
+    albedo: Box<dyn Texture>,
     roughness: f32,
 }
 
@@ -73,6 +81,8 @@ impl Material for Metal {
         in_ray: &Ray,
         hit_point: &Vector3,
         normal: &Vector3,
+        u: f32,
+        v: f32,
     ) -> Option<(Vector3, Ray)> {
         // TODO: Perform this check and constraint upon JSON
         // deserialization.
@@ -88,7 +98,10 @@ impl Material for Metal {
         let out_ray_dir = reflected + r * utils::unit_sphere_random();
 
         if out_ray_dir.dot(*normal) > 0.0_f32 {
-            Some((self.albedo, Ray::new(*hit_point, out_ray_dir)))
+            Some((
+                self.albedo.value(u, v, hit_point),
+                Ray::new(*hit_point, out_ray_dir),
+            ))
         } else {
             None
         }
@@ -107,6 +120,8 @@ impl Material for Dielectric {
         in_ray: &Ray,
         hit_point: &Vector3,
         normal: &Vector3,
+        _u: f32,
+        _v: f32,
     ) -> Option<(Vector3, Ray)> {
         let normal_dot = in_ray.dir.dot(*normal);
 

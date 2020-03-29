@@ -3,11 +3,13 @@ use crate::material::Material;
 use crate::ray::Ray;
 use crate::vector::Vector3;
 
+use std::f32;
 use std::rc::Rc;
 
 pub trait Shape {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
     fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3;
+    fn get_uv_coords(&self, r: &Ray, t_hit: f32) -> (f32, f32);
     fn get_material(&self) -> &Rc<dyn Material>;
     fn get_bounding_box(&self) -> AABB;
 }
@@ -37,6 +39,7 @@ impl Sphere {
     }
 }
 
+const ONE_OVER_2_PI: f32 = 1.0_f32 / (2.0_f32 * f32::consts::PI);
 impl Shape for Sphere {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32> {
         let towards_origin = r.origin - self.center;
@@ -62,6 +65,18 @@ impl Shape for Sphere {
         ((r.point_at(t_hit) - self.center) / self.radius).normalized()
     }
 
+    fn get_uv_coords(&self, r: &Ray, t_hit: f32) -> (f32, f32) {
+        let unit_sphere_point = (r.point_at(t_hit) - self.center) / self.radius;
+        (
+            // u
+            (1.0_f32
+                - ((unit_sphere_point.z.atan2(unit_sphere_point.x) + f32::consts::PI)
+                    * ONE_OVER_2_PI)),
+            // v
+            ((unit_sphere_point.y.asin() + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
+        )
+    }
+
     fn get_material(&self) -> &Rc<dyn Material> {
         &self.material
     }
@@ -76,6 +91,8 @@ impl Shape for Sphere {
 
 pub struct TriangleMesh {
     vertices: Vec<Vector3>,
+    // TODO: Decide if I have enough need for a real Vector2 struct.
+    tex_coords: Vec<(f32, f32)>,
     enable_backface_culling: bool,
     material: Rc<dyn Material>,
 }
@@ -83,11 +100,13 @@ pub struct TriangleMesh {
 impl TriangleMesh {
     pub fn new(
         vertices: Vec<Vector3>,
+        tex_coords: Vec<(f32, f32)>,
         enable_backface_culling: bool,
         material: Rc<dyn Material>,
     ) -> TriangleMesh {
         TriangleMesh {
             vertices: vertices,
+            tex_coords: tex_coords,
             enable_backface_culling: enable_backface_culling,
             material: material,
         }
@@ -96,9 +115,14 @@ impl TriangleMesh {
 
 pub struct Triangle {
     triangle_mesh: Rc<TriangleMesh>,
+    // TODO: Make Vector generic over the data type,
+    // and use it here.
     v0: usize,
     v1: usize,
     v2: usize,
+    t0: Option<usize>,
+    t1: Option<usize>,
+    t2: Option<usize>,
 }
 
 impl Triangle {
@@ -107,6 +131,9 @@ impl Triangle {
         v0: usize,
         v1: usize,
         v2: usize,
+        t0: Option<usize>,
+        t1: Option<usize>,
+        t2: Option<usize>,
     ) -> Result<Triangle, String> {
         if mesh.vertices.is_empty()
             || mesh.vertices.len() - 1 < v0
@@ -120,11 +147,44 @@ impl Triangle {
 					v1,
 					v2));
         }
+        match t0 {
+            Some(t) => {
+                if t >= mesh.tex_coords.len() {
+                    return Err(format!("Triangle texture coordinates have length {} but attempted to make a Triangle with texture index {}.",
+            mesh.tex_coords.len(),
+            t));
+                }
+            }
+            None => {}
+        }
+        match t1 {
+            Some(t) => {
+                if t >= mesh.tex_coords.len() {
+                    return Err(format!("Triangle texture coordinates have length {} but attempted to make a Triangle with texture index {}.",
+            mesh.tex_coords.len(),
+            t));
+                }
+            }
+            None => {}
+        }
+        match t2 {
+            Some(t) => {
+                if t >= mesh.tex_coords.len() {
+                    return Err(format!("Triangle texture coordinates have length {} but attempted to make a Triangle with texture index {}.",
+            mesh.tex_coords.len(),
+            t));
+                }
+            }
+            None => {}
+        }
         Ok(Triangle {
             triangle_mesh: mesh,
             v0: v0,
             v1: v1,
             v2: v2,
+            t0: t0,
+            t1: t1,
+            t2: t2,
         })
     }
 }
@@ -193,6 +253,45 @@ impl Shape for Triangle {
             normal = -normal; // Ray came from the back so reverse the normal
         }
         return normal;
+    }
+
+    fn get_uv_coords(&self, r: &Ray, _t_hit: f32) -> (f32, f32) {
+        let vertex0 = self.triangle_mesh.vertices[self.v0];
+        let vertex1 = self.triangle_mesh.vertices[self.v1];
+        let vertex2 = self.triangle_mesh.vertices[self.v2];
+
+        // TODO: More repeated work here; see TODO in derive_normal.
+        // There may be a way to avoid repeating work here and
+        // reverse calculate data from the hit point.
+        let edge_1 = vertex1 - vertex0;
+        let edge_2 = vertex2 - vertex0;
+        let p_vec = r.dir.cross(edge_2);
+        let determinant = edge_1.dot(p_vec);
+
+        let inverse_determinant = 1.0_f32 / determinant;
+        let t_vec = r.origin - vertex0;
+        let u = t_vec.dot(p_vec) * inverse_determinant;
+
+        let q_vec = t_vec.cross(edge_1);
+        let v = r.dir.dot(q_vec) * inverse_determinant;
+
+        let w = 1.0_f32 - u - v;
+
+        let (u0, v0) = match self.t0 {
+            Some(t) => self.triangle_mesh.tex_coords[t],
+            None => (0_f32, 0_f32),
+        };
+        let (u1, v1) = match self.t1 {
+            Some(t) => self.triangle_mesh.tex_coords[t],
+            None => (1_f32, 0_f32),
+        };
+        let (u2, v2) = match self.t2 {
+            Some(t) => self.triangle_mesh.tex_coords[t],
+            None => (1_f32, 1_f32),
+        };
+
+        // Apply to UV coordinates from mesh
+        return ((u0 * u + u1 * v + u2 * w), (v0 * u + v1 * v + v2 * w));
     }
 
     fn get_material(&self) -> &Rc<dyn Material> {

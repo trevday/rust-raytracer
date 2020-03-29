@@ -22,9 +22,10 @@ pub fn trace(
             // Some if we have a hit
             Some((s, t)) => {
                 let normal = s.derive_normal(r, t);
+                let (u, v) = s.get_uv_coords(r, t);
 
                 let hit_point = r.point_at(t);
-                match s.get_material().scatter(r, &hit_point, &normal) {
+                match s.get_material().scatter(r, &hit_point, &normal, u, v) {
                     // Some if we scattered
                     Some((attenuation, scattered_ray)) => {
                         // Recursive case

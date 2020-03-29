@@ -58,6 +58,7 @@ fn main() {
     let res_y = scene_spec.logistics.resolution_y;
     let samples = scene_spec.logistics.samples;
     let mut data = Vec::with_capacity((res_x * res_y * 3u32).try_into().unwrap());
+    let mut aggregate_workspace = scene_spec.shape_aggregate.get_workspace();
     // Execute path trace for each pixel of our output
     for y in 0..res_y {
         for x in 0..res_x {
@@ -71,8 +72,14 @@ fn main() {
                 let v = ((res_y - y) as f32 + rand::random::<f32>()) / res_y as f32;
 
                 let r = scene_spec.camera.get_ray(u, v);
-                color =
-                    color + aggregate::trace(&r, &(*scene_spec.shape_aggregate), &background, 0);
+                color = color
+                    + aggregate::trace(
+                        &r,
+                        &(*scene_spec.shape_aggregate),
+                        &mut aggregate_workspace,
+                        &background,
+                        0,
+                    );
             }
             color = color / samples as f32;
             color = Vector3::new(color.x.sqrt(), color.y.sqrt(), color.z.sqrt());

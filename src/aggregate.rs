@@ -11,10 +11,11 @@ const MAX_DEPTH: i32 = 50;
 pub fn trace(
     r: &Ray,
     shape_aggregate: &dyn Aggregate,
+    workspace: &mut Workspace,
     bg_func: &dyn Fn(&Ray) -> Vector3,
     depth: i32,
 ) -> Vector3 {
-    let hit_shape = hit(shape_aggregate, r);
+    let hit_shape = hit(shape_aggregate, workspace, r);
 
     if depth < MAX_DEPTH {
         match hit_shape {
@@ -28,7 +29,13 @@ pub fn trace(
                     Some((attenuation, scattered_ray)) => {
                         // Recursive case
                         return attenuation
-                            * trace(&scattered_ray, shape_aggregate, bg_func, depth + 1);
+                            * trace(
+                                &scattered_ray,
+                                shape_aggregate,
+                                workspace,
+                                bg_func,
+                                depth + 1,
+                            );
                     }
                     None => {
                         return Vector3::new_empty();
@@ -44,25 +51,46 @@ pub fn trace(
     return bg_func(r);
 }
 
+// Workspaces are optional, but some aggregate structures (like BVH)
+// can use them to improve performance.
+pub enum Workspace {
+    Void,
+    BVH(Vec<usize>),
+}
+
 pub trait Aggregate {
     // Hit for an aggregate returns the shape that was hit and the time
     // 't' at which it was hit along the path of the ray.
     // None is returned if no shape is hit.
-    fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<(&dyn Shape, f32)>;
+    fn hit(
+        &self,
+        r: &Ray,
+        t_min: f32,
+        t_max: f32,
+        workspaces: &mut Workspace,
+    ) -> Option<(&dyn Shape, f32)>;
+
+    fn get_workspace(&self) -> Workspace {
+        return Workspace::Void;
+    }
 }
 
 // Small convenience function
 const T_MIN: f32 = 0.001_f32;
 const T_MAX: f32 = std::f32::MAX;
-fn hit<'a>(aggregate: &'a dyn Aggregate, r: &Ray) -> Option<(&'a dyn Shape, f32)> {
-    aggregate.hit(r, T_MIN, T_MAX)
+fn hit<'a>(
+    aggregate: &'a dyn Aggregate,
+    workspace: &mut Workspace,
+    r: &Ray,
+) -> Option<(&'a dyn Shape, f32)> {
+    aggregate.hit(r, T_MIN, T_MAX, workspace)
 }
 
 // Simple list aggregate
 type List = Vec<Box<dyn Shape>>;
 
 impl Aggregate for List {
-    fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<(&dyn Shape, f32)> {
+    fn hit(&self, r: &Ray, t_min: f32, t_max: f32, _: &mut Workspace) -> Option<(&dyn Shape, f32)> {
         let mut modified_t_max = t_max;
         let mut hit_shape: Option<&dyn Shape> = None;
 
@@ -239,7 +267,20 @@ fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Box<dyn Shape>>) {
 }
 
 impl Aggregate for BVH {
-    fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<(&dyn Shape, f32)> {
+    fn hit(
+        &self,
+        r: &Ray,
+        t_min: f32,
+        t_max: f32,
+        workspace: &mut Workspace,
+    ) -> Option<(&dyn Shape, f32)> {
+        // Grab the workspace as the pre-allocated vector
+        // we expect it to be.
+        let to_explore = match workspace {
+            Workspace::BVH(v) => v,
+            _ => panic!("BVH Aggregate was given a bad workspace!"),
+        };
+
         if self.is_empty() {
             return None;
         }
@@ -247,18 +288,23 @@ impl Aggregate for BVH {
         let mut modified_t_max = t_max;
         let mut hit_shape: Option<&dyn Shape> = None;
 
-        // Use division as a quick and conservative substitute for log
-        let mut to_explore = Vec::with_capacity(self.len() / 2);
-        to_explore.push(0_usize);
+        let mut to_explore_count = 1;
+        to_explore[0] = 0;
 
-        while !to_explore.is_empty() {
-            let cur_idx = to_explore.pop()?;
+        while to_explore_count > 0 {
+            // "Pop" the top value
+            to_explore_count -= 1;
+            let cur_idx = to_explore[to_explore_count];
+
             match &self[cur_idx] {
                 BVHTypes::Leaf(leaf) => {
                     if !leaf.bounding_box.intersect(r, t_min, modified_t_max) {
                         continue;
                     }
-                    match leaf.shapes.hit(r, t_min, modified_t_max) {
+                    match leaf
+                        .shapes
+                        .hit(r, t_min, modified_t_max, &mut Workspace::Void)
+                    {
                         Some((s, t)) => {
                             modified_t_max = t;
                             hit_shape = Some(s);
@@ -276,8 +322,14 @@ impl Aggregate for BVH {
                     // test with that branch first. This makes it more likely the t_max
                     // will be updated in such a way that the second branch is not even
                     // hit tested beyond its bounding box.
-                    to_explore.push(cur_idx + 1_usize); // Left Branch
-                    to_explore.push(cur_idx + node.right_offset); // Right Branch
+
+                    // "Push" new values to explore
+                    // Left Branch
+                    to_explore[to_explore_count] = cur_idx + 1_usize;
+                    to_explore_count += 1;
+                    // Right Branch
+                    to_explore[to_explore_count] = cur_idx + node.right_offset;
+                    to_explore_count += 1;
                 }
             }
         }
@@ -286,6 +338,14 @@ impl Aggregate for BVH {
             Some(s) => Some((s, modified_t_max)),
             None => None,
         }
+    }
+
+    // Allocate this conservatively, so that we never
+    // have to allocate more space in our hit loop
+    fn get_workspace(&self) -> Workspace {
+        let mut v = Vec::with_capacity(self.len());
+        v.resize(self.len(), 0_usize);
+        return Workspace::BVH(v);
     }
 }
 

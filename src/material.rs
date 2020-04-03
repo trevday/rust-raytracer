@@ -5,6 +5,7 @@ use crate::vector::Vector3;
 
 use rand;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use typetag;
 
 fn reflect(v: Vector3, n: Vector3) -> Vector3 {
@@ -71,7 +72,24 @@ impl Material for Lambert {
 #[derive(Serialize, Deserialize)]
 pub struct Metal {
     albedo: Box<dyn Texture>,
-    roughness: f32,
+    roughness: Roughness,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(try_from = "f32")]
+struct Roughness(f32);
+impl TryFrom<f32> for Roughness {
+    type Error = &'static str;
+
+    fn try_from(r: f32) -> Result<Self, Self::Error> {
+        let mut roughness = r;
+        if roughness < 0_f32 {
+            roughness = 0_f32;
+        } else if roughness > 1_f32 {
+            roughness = 1_f32;
+        }
+        return Ok(Roughness(roughness));
+    }
 }
 
 #[typetag::serde]
@@ -84,18 +102,8 @@ impl Material for Metal {
         u: f32,
         v: f32,
     ) -> Option<(Vector3, Ray)> {
-        // TODO: Perform this check and constraint upon JSON
-        // deserialization.
-        let r = if self.roughness < 0_f32 {
-            0_f32
-        } else if self.roughness > 1_f32 {
-            1_f32
-        } else {
-            self.roughness
-        };
-
         let reflected = reflect(in_ray.dir.normalized(), *normal);
-        let out_ray_dir = reflected + r * utils::unit_sphere_random();
+        let out_ray_dir = reflected + self.roughness.0 * utils::unit_sphere_random();
 
         if out_ray_dir.dot(*normal) > 0.0_f32 {
             Some((

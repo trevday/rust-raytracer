@@ -1,8 +1,10 @@
 use crate::aggregate::{new_bvh, Aggregate};
 use crate::camera::Camera;
+use crate::material;
 use crate::material::Material;
 use crate::shape;
 use crate::shape::Shape;
+use crate::texture::Texture;
 use crate::vector::Vector3;
 
 use serde::Deserialize;
@@ -67,19 +69,36 @@ pub fn deserialize(data: &str, spec_dir: &path::Path) -> Result<Scene, Deseriali
     let camera_value = get_required_key(&top_level, "Camera")?;
     let camera: Camera = serde_json::from_value(serde_json::Value::clone(camera_value))?;
 
-    // Create materials library
-    let materials_value = get_required_key(&top_level, "Materials")?;
-    if !materials_value.is_object() {
-        return Err(DeserializeError::LocalError(String::from(
-            "'Materials' is not a JSON object.",
-        )));
+    // Create textures library
+    let textures_value = match get_required_key(&top_level, "Textures")?.as_object() {
+        Some(t) => t,
+        None => {
+            return Err(DeserializeError::LocalError(String::from(
+                "'Textures' is not a JSON object.",
+            )));
+        }
+    };
+    let mut textures = HashMap::new();
+    for (key, value) in textures_value.iter() {
+        textures.insert(String::clone(key), deserialize_texture(value, spec_dir)?);
     }
-    let materials: HashMap<String, Rc<dyn Material>> =
-        serde_json::from_value(serde_json::Value::clone(materials_value))?;
+
+    // Create materials library
+    let materials_value = match get_required_key(&top_level, "Materials")?.as_object() {
+        Some(m) => m,
+        None => {
+            return Err(DeserializeError::LocalError(String::from(
+                "'Materials' is not a JSON object.",
+            )))
+        }
+    };
+    let mut materials = HashMap::new();
+    for (key, value) in materials_value.iter() {
+        materials.insert(String::clone(key), deserialize_material(value, &textures)?);
+    }
 
     // Set up shapes
-    let shapes_value = get_required_key(&top_level, "Shapes")?;
-    let shapes_json_vec = match shapes_value.as_array() {
+    let shapes_value = match get_required_key(&top_level, "Shapes")?.as_array() {
         Some(s) => s,
         None => {
             return Err(DeserializeError::LocalError(String::from(
@@ -88,8 +107,8 @@ pub fn deserialize(data: &str, spec_dir: &path::Path) -> Result<Scene, Deseriali
         }
     };
     // Iterate through the shapes and deserialize correctly
-    let mut shapes: Vec<Box<dyn Shape>> = Vec::with_capacity(shapes_json_vec.len());
-    for shape in shapes_json_vec {
+    let mut shapes: Vec<Box<dyn Shape>> = Vec::with_capacity(shapes_value.len());
+    for shape in shapes_value {
         deserialize_shape(shape, spec_dir, &materials, &mut shapes)?;
     }
 
@@ -127,6 +146,106 @@ fn get_required_key<'a>(
     }
 }
 
+fn identify_type(dict: &serde_json::Value) -> Result<&str, DeserializeError> {
+    match get_required_key(dict, "type")?.as_str() {
+        Some(t) => Ok(t),
+        None => {
+            return Err(DeserializeError::LocalError(format!(
+                "Expected 'type' key to be a string: {}",
+                serde_json::to_string(dict)?
+            )))
+        }
+    }
+}
+
+fn deserialize_texture(
+    json: &serde_json::Value,
+    _spec_dir: &path::Path,
+) -> Result<Rc<dyn Texture>, DeserializeError> {
+    if !json.is_object() {
+        return Err(DeserializeError::LocalError(format!(
+            "Expected JSON object for value in Texture map: {}",
+            serde_json::to_string(json)?
+        )));
+    }
+
+    let tex_type = identify_type(json)?;
+    match tex_type {
+        // Default behavior here is to just resort to normal serde deserialize
+        _ => Ok(serde_json::from_value::<Rc<dyn Texture>>(
+            serde_json::Value::clone(json),
+        )?),
+    }
+}
+
+fn deserialize_material(
+    json: &serde_json::Value,
+    textures: &HashMap<String, Rc<dyn Texture>>,
+) -> Result<Rc<dyn Material>, DeserializeError> {
+    if !json.is_object() {
+        return Err(DeserializeError::LocalError(format!(
+            "Expected JSON object for value in Materials map: {}",
+            serde_json::to_string(json)?
+        )));
+    }
+
+    let material_type = identify_type(json)?;
+    match material_type {
+        "Lambert" => deserialize_lambert(json, textures),
+        "Metal" => deserialize_metal(json, textures),
+        // Default behavior here is to just resort to normal serde deserialize
+        _ => Ok(serde_json::from_value::<Rc<dyn Material>>(
+            serde_json::Value::clone(json),
+        )?),
+    }
+}
+
+// Lambert
+#[derive(Deserialize)]
+struct LambertDescription {
+    albedo: String,
+}
+
+fn deserialize_lambert(
+    json: &serde_json::Value,
+    textures: &HashMap<String, Rc<dyn Texture>>,
+) -> Result<Rc<dyn Material>, DeserializeError> {
+    let lambert_desc: LambertDescription = serde_json::from_value(serde_json::Value::clone(json))?;
+    if !textures.contains_key(&lambert_desc.albedo) {
+        return Err(DeserializeError::LocalError(format!(
+            "Missing Texture {} for Lambert.",
+            lambert_desc.albedo
+        )));
+    }
+    return Ok(Rc::new(material::Lambert::new(Rc::clone(
+        &textures[&lambert_desc.albedo],
+    ))));
+}
+
+// Metal
+#[derive(Deserialize)]
+struct MetalDescription {
+    albedo: String,
+    roughness: f32,
+}
+
+fn deserialize_metal(
+    json: &serde_json::Value,
+    textures: &HashMap<String, Rc<dyn Texture>>,
+) -> Result<Rc<dyn Material>, DeserializeError> {
+    let metal_desc: MetalDescription = serde_json::from_value(serde_json::Value::clone(json))?;
+    if !textures.contains_key(&metal_desc.albedo) {
+        return Err(DeserializeError::LocalError(format!(
+            "Missing Texture {} for Metal.",
+            metal_desc.albedo
+        )));
+    }
+    return Ok(Rc::new(material::Metal::new(
+        Rc::clone(&textures[&metal_desc.albedo]),
+        metal_desc.roughness,
+    )));
+}
+
 fn deserialize_shape(
     json: &serde_json::Value,
     spec_dir: &path::Path,
@@ -140,15 +259,7 @@ fn deserialize_shape(
         )));
     }
 
-    let shape_type = match get_required_key(json, "type")?.as_str() {
-        Some(t) => t,
-        None => {
-            return Err(DeserializeError::LocalError(format!(
-                "Expected 'type' key for Shape to be a string: {}",
-                serde_json::to_string(json)?
-            )))
-        }
-    };
+    let shape_type = identify_type(json)?;
     match shape_type {
         "Sphere" => deserialize_sphere(json, materials, shapes),
         "Mesh" => deserialize_mesh(json, spec_dir, materials, shapes),

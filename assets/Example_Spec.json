@@ -25,46 +25,51 @@
 		"aperture": 0.2,
 		"focus_distance": 1.4
 	},
+	"Textures": {
+		"Checker1": {
+			"type": "Checker",
+			"repeat": 10,
+			"odd": {
+				"type": "Constant",
+				"color": [
+					1,
+					1,
+					1
+				]
+			},
+			"even": {
+				"type": "Constant",
+				"color": [
+					0,
+					0,
+					0
+				]
+			}
+		},
+		"Test": {
+			"type": "Test"
+		},
+		"Constant1": {
+			"type": "Constant",
+			"color": [
+				0.8,
+				0.6,
+				0.2
+			]
+		}
+	},
 	"Materials": {
 		"Lambert1": {
 			"type": "Lambert",
-			"albedo": {
-				"type": "Checker",
-				"repeat": 10,
-				"odd": {
-					"type": "Constant",
-					"color": [
-						1,
-						1,
-						1
-					]
-				},
-				"even": {
-					"type": "Constant",
-					"color": [
-						0,
-						0,
-						0
-					]
-				}
-			}
+			"albedo": "Checker1"
 		},
 		"Lambert2": {
 			"type": "Lambert",
-			"albedo": {
-				"type": "Test"
-			}
+			"albedo": "Test"
 		},
 		"Metal1": {
 			"type": "Metal",
-			"albedo": {
-				"type": "Constant",
-				"color": [
-					0.8,
-					0.6,
-					0.2
-				]
-			},
+			"albedo": "Constant1",
 			"roughness": 0
 		},
 		"Dielectric1": {

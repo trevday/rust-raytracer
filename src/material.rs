@@ -5,7 +5,7 @@ use crate::vector::Vector3;
 
 use rand;
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
+use std::rc::Rc;
 use typetag;
 
 fn reflect(v: Vector3, n: Vector3) -> Vector3 {
@@ -48,7 +48,13 @@ pub trait Material {
 
 #[derive(Serialize, Deserialize)]
 pub struct Lambert {
-    albedo: Box<dyn Texture>,
+    albedo: Rc<dyn Texture>,
+}
+
+impl Lambert {
+    pub fn new(albedo: Rc<dyn Texture>) -> Lambert {
+        Lambert { albedo: albedo }
+    }
 }
 
 #[typetag::serde]
@@ -71,24 +77,24 @@ impl Material for Lambert {
 
 #[derive(Serialize, Deserialize)]
 pub struct Metal {
-    albedo: Box<dyn Texture>,
-    roughness: Roughness,
+    albedo: Rc<dyn Texture>,
+    roughness: f32,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(try_from = "f32")]
-struct Roughness(f32);
-impl TryFrom<f32> for Roughness {
-    type Error = &'static str;
-
-    fn try_from(r: f32) -> Result<Self, Self::Error> {
-        let mut roughness = r;
-        if roughness < 0_f32 {
-            roughness = 0_f32;
-        } else if roughness > 1_f32 {
-            roughness = 1_f32;
+impl Metal {
+    pub fn new(albedo: Rc<dyn Texture>, roughness: f32) -> Metal {
+        // Clamp roughness
+        let mut r = roughness;
+        if r < 0_f32 {
+            r = 0_f32;
+        } else if r > 1_f32 {
+            r = 1_f32;
         }
-        return Ok(Roughness(roughness));
+
+        Metal {
+            albedo: albedo,
+            roughness: r,
+        }
     }
 }
 
@@ -103,7 +109,7 @@ impl Material for Metal {
         v: f32,
     ) -> Option<(Vector3, Ray)> {
         let reflected = reflect(in_ray.dir.normalized(), *normal);
-        let out_ray_dir = reflected + self.roughness.0 * utils::unit_sphere_random();
+        let out_ray_dir = reflected + self.roughness * utils::unit_sphere_random();
 
         if out_ray_dir.dot(*normal) > 0.0_f32 {
             Some((

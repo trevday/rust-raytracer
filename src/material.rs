@@ -4,9 +4,8 @@ use crate::utils;
 use crate::vector::Vector3;
 
 use rand;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::rc::Rc;
-use typetag;
 
 fn reflect(v: Vector3, n: Vector3) -> Vector3 {
     v - 2.0_f32 * v.dot(n) * n
@@ -30,7 +29,6 @@ fn schlick(cosine: f32, index: f32) -> f32 {
     r0 + (1.0_f32 - r0) * (1.0_f32 - cosine).powi(5)
 }
 
-#[typetag::serde(tag = "type")]
 pub trait Material {
     // Because of the Rust compiler's optimizations, including use of inlining, implicit pointer
     // arguments, and return value optimization, I think it is ok for functions like this to use
@@ -46,7 +44,6 @@ pub trait Material {
     ) -> Option<(Vector3, Ray)>;
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Lambert {
     albedo: Rc<dyn Texture>,
 }
@@ -57,7 +54,6 @@ impl Lambert {
     }
 }
 
-#[typetag::serde]
 impl Material for Lambert {
     fn scatter(
         &self,
@@ -75,7 +71,6 @@ impl Material for Lambert {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Metal {
     albedo: Rc<dyn Texture>,
     roughness: f32,
@@ -98,7 +93,6 @@ impl Metal {
     }
 }
 
-#[typetag::serde]
 impl Material for Metal {
     fn scatter(
         &self,
@@ -122,12 +116,11 @@ impl Material for Metal {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct Dielectric {
     refractive_index: f32,
 }
 
-#[typetag::serde]
 impl Material for Dielectric {
     fn scatter(
         &self,

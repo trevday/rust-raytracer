@@ -1,5 +1,6 @@
 use crate::ray::Ray;
 use crate::shape::Shape;
+use crate::utils;
 use crate::vector::Axis;
 use crate::vector::Vector3;
 
@@ -23,6 +24,7 @@ pub fn trace(
             Some((s, t)) => {
                 let normal = s.derive_normal(r, t);
                 let (u, v) = s.get_uv_coords(r, t);
+                let (u, v) = (utils::clamp(u, 0_f32, 1_f32), utils::clamp(v, 0_f32, 1_f32));
 
                 let hit_point = r.point_at(t);
                 match s.get_material().scatter(r, &hit_point, &normal, u, v) {

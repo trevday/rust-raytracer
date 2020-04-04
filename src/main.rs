@@ -3,6 +3,7 @@ mod aggregate;
 mod camera;
 mod material;
 mod ray;
+mod resources;
 mod scene;
 mod shape;
 mod texture;
@@ -17,6 +18,7 @@ use std::{convert::TryInto, env, fs, fs::OpenOptions, path, process};
 
 // Use statements for local modules
 use crate::ray::Ray;
+use crate::resources::Resources;
 use crate::vector::Vector3;
 
 // Constants
@@ -31,6 +33,7 @@ fn main() {
     }
 
     // Read the scene spec file
+    let mut res = Resources::new();
     let scene_spec_path = path::Path::new(&args[1]);
     let scene_str = fs::read_to_string(&scene_spec_path).expect("Failed to read scene spec file.");
     let scene_spec = scene::deserialize(
@@ -39,6 +42,7 @@ fn main() {
             Some(p) => p,
             None => path::Path::new("/"),
         },
+        &mut res,
     )
     .expect("Failed to parse scene spec JSON.");
 

@@ -16,3 +16,13 @@ pub fn unit_sphere_random() -> Vector3 {
 
     Vector3::new(x, y, z)
 }
+
+pub fn clamp(v: f32, min: f32, max: f32) -> f32 {
+    if v > max {
+        max
+    } else if v < min {
+        min
+    } else {
+        v
+    }
+}

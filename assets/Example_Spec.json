@@ -56,6 +56,10 @@
 				0.6,
 				0.2
 			]
+		},
+		"World": {
+			"type": "Image",
+			"image_path": "World.jpg"
 		}
 	},
 	"Materials": {
@@ -69,7 +73,7 @@
 		},
 		"Metal1": {
 			"type": "Metal",
-			"albedo": "Constant1",
+			"albedo": "World",
 			"roughness": 0
 		},
 		"Dielectric1": {

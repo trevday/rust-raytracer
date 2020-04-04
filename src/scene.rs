@@ -2,8 +2,10 @@ use crate::aggregate::{new_bvh, Aggregate};
 use crate::camera::Camera;
 use crate::material;
 use crate::material::Material;
+use crate::resources::Resources;
 use crate::shape;
 use crate::shape::Shape;
+use crate::texture;
 use crate::texture::Texture;
 use crate::vector::Vector3;
 
@@ -53,7 +55,11 @@ impl convert::From<io::Error> for DeserializeError {
 
 // Deserializes a JSON scene specification correctly
 // into a scene structure.
-pub fn deserialize(data: &str, spec_dir: &path::Path) -> Result<Scene, DeserializeError> {
+pub fn deserialize(
+    data: &str,
+    spec_dir: &path::Path,
+    res: &mut Resources,
+) -> Result<Scene, DeserializeError> {
     let top_level: serde_json::Value = serde_json::from_str(data)?;
     if !top_level.is_object() {
         return Err(DeserializeError::LocalError(String::from(
@@ -80,7 +86,10 @@ pub fn deserialize(data: &str, spec_dir: &path::Path) -> Result<Scene, Deseriali
     };
     let mut textures = HashMap::new();
     for (key, value) in textures_value.iter() {
-        textures.insert(String::clone(key), deserialize_texture(value, spec_dir)?);
+        textures.insert(
+            String::clone(key),
+            deserialize_texture(value, spec_dir, res)?,
+        );
     }
 
     // Create materials library
@@ -160,7 +169,8 @@ fn identify_type(dict: &serde_json::Value) -> Result<&str, DeserializeError> {
 
 fn deserialize_texture(
     json: &serde_json::Value,
-    _spec_dir: &path::Path,
+    spec_dir: &path::Path,
+    res: &mut Resources,
 ) -> Result<Rc<dyn Texture>, DeserializeError> {
     if !json.is_object() {
         return Err(DeserializeError::LocalError(format!(
@@ -171,11 +181,58 @@ fn deserialize_texture(
 
     let tex_type = identify_type(json)?;
     match tex_type {
-        // Default behavior here is to just resort to normal serde deserialize
-        _ => Ok(serde_json::from_value::<Rc<dyn Texture>>(
+        "Constant" => Ok(serde_json::from_value::<Rc<texture::Constant>>(
             serde_json::Value::clone(json),
         )?),
+        "Test" => Ok(Rc::new(texture::Test)),
+        "Checker" => deserialize_checker(json, spec_dir, res),
+        "Image" => deserialize_image(json, spec_dir, res),
+        _ => Err(DeserializeError::LocalError(format!(
+            "Unsupported texture type: {}",
+            tex_type
+        ))),
     }
+}
+
+// Checker
+#[derive(Deserialize)]
+struct CheckerDescription {
+    repeat: f32,
+    odd: serde_json::Value,
+    even: serde_json::Value,
+}
+
+fn deserialize_checker(
+    json: &serde_json::Value,
+    spec_dir: &path::Path,
+    res: &mut Resources,
+) -> Result<Rc<dyn Texture>, DeserializeError> {
+    let checker_desc: CheckerDescription = serde_json::from_value(serde_json::Value::clone(json))?;
+    return Ok(Rc::new(texture::Checker::new(
+        checker_desc.repeat,
+        deserialize_texture(&checker_desc.odd, spec_dir, res)?,
+        deserialize_texture(&checker_desc.even, spec_dir, res)?,
+    )));
+}
+
+// Image
+#[derive(Deserialize)]
+struct ImageDescription {
+    image_path: String,
+}
+
+fn deserialize_image(
+    json: &serde_json::Value,
+    spec_dir: &path::Path,
+    res: &mut Resources,
+) -> Result<Rc<dyn Texture>, DeserializeError> {
+    let image_desc: ImageDescription = serde_json::from_value(serde_json::Value::clone(json))?;
+    return Ok(Rc::new(texture::Image::new(
+        match res.load_image(&spec_dir.join(image_desc.image_path)) {
+            Ok(i) => i,
+            Err(e) => return Err(DeserializeError::LocalError(e)),
+        },
+    )));
 }
 
 fn deserialize_material(
@@ -193,10 +250,13 @@ fn deserialize_material(
     match material_type {
         "Lambert" => deserialize_lambert(json, textures),
         "Metal" => deserialize_metal(json, textures),
-        // Default behavior here is to just resort to normal serde deserialize
-        _ => Ok(serde_json::from_value::<Rc<dyn Material>>(
+        "Dielectric" => Ok(serde_json::from_value::<Rc<material::Dielectric>>(
             serde_json::Value::clone(json),
         )?),
+        _ => Err(DeserializeError::LocalError(format!(
+            "Unsupported material type: {}",
+            material_type
+        ))),
     }
 }
 

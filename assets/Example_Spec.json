@@ -49,6 +49,16 @@
 		"Test": {
 			"type": "Test"
 		},
+		"Noise": {
+			"type": "Noise",
+			"scale": 20
+		},
+		"Turbulence": {
+			"type": "Turbulence",
+			"scale": 20,
+			"depth": 7,
+			"omega": 0.7
+		},
 		"Constant1": {
 			"type": "Constant",
 			"color": [
@@ -69,7 +79,7 @@
 		},
 		"Lambert2": {
 			"type": "Lambert",
-			"albedo": "Test"
+			"albedo": "Turbulence"
 		},
 		"Metal1": {
 			"type": "Metal",

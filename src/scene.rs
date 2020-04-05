@@ -187,6 +187,12 @@ fn deserialize_texture(
         "Test" => Ok(Rc::new(texture::Test)),
         "Checker" => deserialize_checker(json, spec_dir, res),
         "Image" => deserialize_image(json, spec_dir, res),
+        "Noise" => Ok(serde_json::from_value::<Rc<texture::Noise>>(
+            serde_json::Value::clone(json),
+        )?),
+        "Turbulence" => Ok(serde_json::from_value::<Rc<texture::Turbulence>>(
+            serde_json::Value::clone(json),
+        )?),
         _ => Err(DeserializeError::LocalError(format!(
             "Unsupported texture type: {}",
             tex_type

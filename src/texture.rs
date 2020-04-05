@@ -1,8 +1,9 @@
+use crate::utils::{noise, turbulence};
 use crate::vector::Vector3;
 
 use image::{DynamicImage, GenericImageView};
 use serde::Deserialize;
-use std::rc::Rc;
+use std::{convert::TryFrom, rc::Rc};
 
 pub trait Texture {
     fn value(&self, u: f32, v: f32, p: &Vector3) -> Vector3;
@@ -77,5 +78,43 @@ impl Texture for Image {
             pixel[1] as f32 / 255_f32,
             pixel[2] as f32 / 255_f32,
         )
+    }
+}
+
+#[derive(Deserialize)]
+pub struct Noise {
+    scale: f32,
+}
+impl Texture for Noise {
+    fn value(&self, _u: f32, _v: f32, p: &Vector3) -> Vector3 {
+        return Vector3::new(0.5_f32, 0.5_f32, 0.5_f32) * (1.0_f32 + noise(&(*p * self.scale)));
+    }
+}
+
+#[derive(Deserialize)]
+pub struct Turbulence {
+    scale: f32,
+    depth: u32,
+    omega: Omega,
+}
+#[derive(Deserialize)]
+#[serde(try_from = "f32")]
+struct Omega(f32);
+impl TryFrom<f32> for Omega {
+    type Error = &'static str;
+    fn try_from(v: f32) -> Result<Self, Self::Error> {
+        if v > 1.0_f32 {
+            Err("Turbulence omega is greater than 1.")
+        } else if v < 0.0_f32 {
+            Err("Turbulence omega is less than 0.")
+        } else {
+            Ok(Omega(v))
+        }
+    }
+}
+impl Texture for Turbulence {
+    fn value(&self, _u: f32, _v: f32, p: &Vector3) -> Vector3 {
+        return Vector3::new(1.0_f32, 1.0_f32, 1.0_f32)
+            * turbulence(&(*p * self.scale), self.depth, self.omega.0);
     }
 }

@@ -89,6 +89,10 @@
 		"Dielectric1": {
 			"type": "Dielectric",
 			"refractive_index": 1.5
+		},
+		"DiffuseLight": {
+			"type": "DiffuseLight",
+			"emission": "Test"
 		}
 	},
 	"Aggregate": "BVH",
@@ -97,7 +101,7 @@
 			"type": "Mesh",
 			"file_path": "Cube.obj",
 			"enable_backface_culling": false,
-			"material": "Lambert2"
+			"material": "DiffuseLight"
 		},
 		{
 			"type": "Sphere",

@@ -105,11 +105,14 @@ fn main() {
     }
 }
 
-fn background(r: &Ray) -> Vector3 {
+fn background(_r: &Ray) -> Vector3 {
+    /*
     // Sky blend
     let dir_normal = r.dir.normalized();
     let t = 0.5_f32 * (dir_normal.y + 1.0_f32);
 
     Vector3::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t)
         + Vector3::new(0.5_f32, 0.7_f32, 1.0_f32) * t
+    */
+    Vector3::new_empty()
 }

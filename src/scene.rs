@@ -259,6 +259,7 @@ fn deserialize_material(
         "Dielectric" => Ok(serde_json::from_value::<Rc<material::Dielectric>>(
             serde_json::Value::clone(json),
         )?),
+        "DiffuseLight" => deserialize_diffuse_light(json, textures),
         _ => Err(DeserializeError::LocalError(format!(
             "Unsupported material type: {}",
             material_type
@@ -310,6 +311,29 @@ fn deserialize_metal(
         Rc::clone(&textures[&metal_desc.albedo]),
         metal_desc.roughness,
     )));
+}
+
+// Diffuse Light
+#[derive(Deserialize)]
+struct DiffuseLightDescription {
+    emission: String,
+}
+
+fn deserialize_diffuse_light(
+    json: &serde_json::Value,
+    textures: &HashMap<String, Rc<dyn Texture>>,
+) -> Result<Rc<dyn Material>, DeserializeError> {
+    let diffuse_desc: DiffuseLightDescription =
+        serde_json::from_value(serde_json::Value::clone(json))?;
+    if !textures.contains_key(&diffuse_desc.emission) {
+        return Err(DeserializeError::LocalError(format!(
+            "Missing Texture {} for DiffuseLight.",
+            diffuse_desc.emission
+        )));
+    }
+    return Ok(Rc::new(material::DiffuseLight::new(Rc::clone(
+        &textures[&diffuse_desc.emission],
+    ))));
 }
 
 fn deserialize_shape(

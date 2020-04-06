@@ -42,6 +42,17 @@ pub trait Material {
         u: f32,
         v: f32,
     ) -> Option<(Vector3, Ray)>;
+
+    fn emit(
+        &self,
+        _in_ray: &Ray,
+        _hit_point: &Vector3,
+        _normal: &Vector3,
+        _u: f32,
+        _v: f32,
+    ) -> Option<Vector3> {
+        None
+    }
 }
 
 pub struct Lambert {
@@ -168,5 +179,39 @@ impl Material for Dielectric {
             Vector3::new(1.0_f32, 1.0_f32, 1.0_f32), // Attenuation is perfect
             out_ray,
         ))
+    }
+}
+
+pub struct DiffuseLight {
+    emission: Rc<dyn Texture>,
+}
+
+impl DiffuseLight {
+    pub fn new(emission: Rc<dyn Texture>) -> DiffuseLight {
+        DiffuseLight { emission: emission }
+    }
+}
+
+impl Material for DiffuseLight {
+    fn scatter(
+        &self,
+        _in_ray: &Ray,
+        _hit_point: &Vector3,
+        _normal: &Vector3,
+        _u: f32,
+        _v: f32,
+    ) -> Option<(Vector3, Ray)> {
+        None
+    }
+
+    fn emit(
+        &self,
+        _in_ray: &Ray,
+        hit_point: &Vector3,
+        _normal: &Vector3,
+        u: f32,
+        v: f32,
+    ) -> Option<Vector3> {
+        Some(self.emission.value(u, v, hit_point))
     }
 }

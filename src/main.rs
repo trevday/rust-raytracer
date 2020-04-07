@@ -2,11 +2,13 @@
 mod aggregate;
 mod camera;
 mod material;
+mod matrix;
 mod ray;
 mod resources;
 mod scene;
 mod shape;
 mod texture;
+mod transform;
 mod utils;
 mod vector;
 

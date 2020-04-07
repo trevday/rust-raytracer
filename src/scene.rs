@@ -7,6 +7,7 @@ use crate::shape;
 use crate::shape::Shape;
 use crate::texture;
 use crate::texture::Texture;
+use crate::transform::Transform;
 use crate::vector::Vector3;
 
 use serde::Deserialize;
@@ -396,6 +397,9 @@ struct MeshDescription {
     file_path: String,
     enable_backface_culling: bool,
     material: String,
+
+    #[serde(default = "Transform::new")]
+    transform: Transform,
 }
 
 fn deserialize_mesh(
@@ -412,6 +416,8 @@ fn deserialize_mesh(
         )));
     }
 
+    let local_to_world = mesh_desc.transform.create_matrix();
+
     // TODO: Proper support for OBJ material (.mtl) files.
     let obj_string = fs::read_to_string(spec_dir.join(&mesh_desc.file_path))?;
     let obj_set = obj::parse(obj_string)?;
@@ -420,7 +426,7 @@ fn deserialize_mesh(
         // Need to convert the library's vertex struct to ours.
         let mut converted_vertices = Vec::with_capacity(object.vertices.len());
         for vert in object.vertices {
-            converted_vertices.push(Vector3::from(vert));
+            converted_vertices.push(&local_to_world * Vector3::from(vert));
         }
         // Also need to convert the texture coordinates.
         let mut converted_tex_coords = Vec::with_capacity(object.tex_vertices.len());

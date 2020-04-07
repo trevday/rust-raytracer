@@ -101,7 +101,24 @@
 			"type": "Mesh",
 			"file_path": "Cube.obj",
 			"enable_backface_culling": false,
-			"material": "DiffuseLight"
+			"material": "DiffuseLight",
+			"transform": {
+				"translate": [
+					-0.25,
+					0.25,
+					-0.25
+				],
+				"rotate": [
+					30,
+					45,
+					90
+				],
+				"scale": [
+					0.25,
+					0.25,
+					0.25
+				]
+			}
 		},
 		{
 			"type": "Sphere",

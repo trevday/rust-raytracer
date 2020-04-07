@@ -37,6 +37,14 @@ impl Vector3 {
         }
     }
 
+    pub fn new_identity() -> Vector3 {
+        Vector3 {
+            x: 1_f32,
+            y: 1_f32,
+            z: 1_f32,
+        }
+    }
+
     pub fn new(x: f32, y: f32, z: f32) -> Vector3 {
         Vector3 { x: x, y: y, z: z }
     }

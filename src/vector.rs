@@ -1,9 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::convert;
 use std::ops;
-use wavefront_obj::obj;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(try_from = "Vec<f32>")]
 pub struct Vector3 {
     pub x: f32,
@@ -187,13 +186,6 @@ impl convert::TryFrom<Vec<f32>> for Vector3 {
         } else {
             Ok(Vector3::new(vec[0], vec[1], vec[2]))
         }
-    }
-}
-
-impl convert::From<obj::Vertex> for Vector3 {
-    fn from(vertex: obj::Vertex) -> Self {
-        // TODO: Expand precision?
-        Vector3::new(vertex.x as f32, vertex.y as f32, vertex.z as f32)
     }
 }
 

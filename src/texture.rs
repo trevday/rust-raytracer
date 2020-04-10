@@ -1,28 +1,29 @@
+use crate::color::RGB;
+use crate::point::Point3;
 use crate::utils::{noise, turbulence};
-use crate::vector::Vector3;
 
 use image::{DynamicImage, GenericImageView};
 use serde::Deserialize;
 use std::{convert::TryFrom, rc::Rc};
 
 pub trait Texture {
-    fn value(&self, u: f32, v: f32, p: &Vector3) -> Vector3;
+    fn value(&self, u: f32, v: f32, p: &Point3) -> RGB;
 }
 
 #[derive(Deserialize)]
 pub struct Constant {
-    color: Vector3,
+    color: RGB,
 }
 impl Texture for Constant {
-    fn value(&self, _u: f32, _v: f32, _p: &Vector3) -> Vector3 {
+    fn value(&self, _u: f32, _v: f32, _p: &Point3) -> RGB {
         self.color
     }
 }
 
 pub struct Test;
 impl Texture for Test {
-    fn value(&self, u: f32, v: f32, _p: &Vector3) -> Vector3 {
-        Vector3::new(
+    fn value(&self, u: f32, v: f32, _p: &Point3) -> RGB {
+        RGB::new(
             u,
             v,
             if 1.0_f32 - u - v < 0.0_f32 {
@@ -49,7 +50,7 @@ impl Checker {
     }
 }
 impl Texture for Checker {
-    fn value(&self, u: f32, v: f32, p: &Vector3) -> Vector3 {
+    fn value(&self, u: f32, v: f32, p: &Point3) -> RGB {
         let sines =
             (self.repeat * p.x).sin() * (self.repeat * p.y).sin() * (self.repeat * p.z).sin();
         if sines < 0.0_f32 {
@@ -69,11 +70,11 @@ impl Image {
     }
 }
 impl Texture for Image {
-    fn value(&self, u: f32, v: f32, _p: &Vector3) -> Vector3 {
+    fn value(&self, u: f32, v: f32, _p: &Point3) -> RGB {
         let i = (u * self.img.width() as f32) as u32;
         let j = ((1_f32 - v) * self.img.height() as f32) as u32;
         let pixel = self.img.get_pixel(i, j);
-        Vector3::new(
+        RGB::new(
             pixel[0] as f32 / 255_f32,
             pixel[1] as f32 / 255_f32,
             pixel[2] as f32 / 255_f32,
@@ -86,8 +87,8 @@ pub struct Noise {
     scale: f32,
 }
 impl Texture for Noise {
-    fn value(&self, _u: f32, _v: f32, p: &Vector3) -> Vector3 {
-        return Vector3::new(0.5_f32, 0.5_f32, 0.5_f32) * (1.0_f32 + noise(&(*p * self.scale)));
+    fn value(&self, _u: f32, _v: f32, p: &Point3) -> RGB {
+        return RGB::new(0.5_f32, 0.5_f32, 0.5_f32) * (1.0_f32 + noise(&(*p * self.scale)));
     }
 }
 
@@ -113,8 +114,8 @@ impl TryFrom<f32> for Omega {
     }
 }
 impl Texture for Turbulence {
-    fn value(&self, _u: f32, _v: f32, p: &Vector3) -> Vector3 {
-        return Vector3::new(1.0_f32, 1.0_f32, 1.0_f32)
+    fn value(&self, _u: f32, _v: f32, p: &Point3) -> RGB {
+        return RGB::new(1.0_f32, 1.0_f32, 1.0_f32)
             * turbulence(&(*p * self.scale), self.depth, self.omega.0);
     }
 }

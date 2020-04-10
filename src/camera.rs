@@ -1,3 +1,4 @@
+use crate::point::Point3;
 use crate::ray::Ray;
 use crate::utils;
 use crate::vector::Vector3;
@@ -8,8 +9,8 @@ use std::convert;
 #[derive(Deserialize)]
 #[serde(from = "CameraDescription")]
 pub struct Camera {
-    origin: Vector3,
-    lower_left_corner: Vector3,
+    origin: Point3,
+    lower_left_corner: Point3,
     horizontal: Vector3,
     vertical: Vector3,
     u: Vector3,
@@ -19,8 +20,8 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(
-        pos: &Vector3,
-        look_at: &Vector3,
+        pos: &Point3,
+        look_at: &Point3,
         up: &Vector3,
         vertical_fov: f32,
         aspect: f32,
@@ -64,8 +65,8 @@ impl Camera {
 
 #[derive(Deserialize)]
 struct CameraDescription {
-    position: Vector3,
-    look_at: Vector3,
+    position: Point3,
+    look_at: Point3,
     up: Vector3,
     fov: f32,
     aspect_ratio: f32,

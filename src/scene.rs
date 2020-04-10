@@ -2,13 +2,13 @@ use crate::aggregate::{new_bvh, Aggregate};
 use crate::camera::Camera;
 use crate::material;
 use crate::material::Material;
+use crate::point::Point3;
 use crate::resources::Resources;
 use crate::shape;
 use crate::shape::Shape;
 use crate::texture;
 use crate::texture::Texture;
 use crate::transform::Transform;
-use crate::vector::Vector3;
 
 use serde::Deserialize;
 use serde_json;
@@ -366,7 +366,7 @@ fn deserialize_shape(
 // Sphere
 #[derive(Deserialize)]
 struct SphereDescription {
-    center: Vector3,
+    center: Point3,
     radius: f32,
     material: String,
 }
@@ -426,7 +426,7 @@ fn deserialize_mesh(
         // Need to convert the library's vertex struct to ours.
         let mut converted_vertices = Vec::with_capacity(object.vertices.len());
         for vert in object.vertices {
-            converted_vertices.push(&local_to_world * Vector3::from(vert));
+            converted_vertices.push(&local_to_world * Point3::from(vert));
         }
         // Also need to convert the texture coordinates.
         let mut converted_tex_coords = Vec::with_capacity(object.tex_vertices.len());

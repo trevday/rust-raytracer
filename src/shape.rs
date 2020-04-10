@@ -1,5 +1,6 @@
 use crate::aggregate::AABB;
 use crate::material::Material;
+use crate::point::Point3;
 use crate::ray::Ray;
 use crate::vector::Vector3;
 
@@ -15,7 +16,7 @@ pub trait Shape {
 }
 
 pub struct Sphere {
-    center: Vector3,
+    center: Point3,
     radius: f32,
     // NOTE: There is a tradeoff here between making an enum struct and a pointer to a trait object.
     // The enum struct would be slightly more efficient as it is immediately available
@@ -30,7 +31,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: Vector3, radius: f32, mat: Rc<dyn Material>) -> Sphere {
+    pub fn new(center: Point3, radius: f32, mat: Rc<dyn Material>) -> Sphere {
         Sphere {
             center: center,
             radius: radius,
@@ -90,7 +91,7 @@ impl Shape for Sphere {
 }
 
 pub struct TriangleMesh {
-    vertices: Vec<Vector3>,
+    vertices: Vec<Point3>,
     // TODO: Decide if I have enough need for a real Vector2 struct.
     tex_coords: Vec<(f32, f32)>,
     enable_backface_culling: bool,
@@ -99,7 +100,7 @@ pub struct TriangleMesh {
 
 impl TriangleMesh {
     pub fn new(
-        vertices: Vec<Vector3>,
+        vertices: Vec<Point3>,
         tex_coords: Vec<(f32, f32)>,
         enable_backface_culling: bool,
         material: Rc<dyn Material>,
@@ -304,8 +305,8 @@ impl Shape for Triangle {
         let vertex2 = self.triangle_mesh.vertices[self.v2];
 
         AABB::new(
-            Vector3::min(vertex0, Vector3::min(vertex1, vertex2)),
-            Vector3::max(vertex0, Vector3::max(vertex1, vertex2)),
+            Point3::min(vertex0, Point3::min(vertex1, vertex2)),
+            Point3::max(vertex0, Point3::max(vertex1, vertex2)),
         )
     }
 }

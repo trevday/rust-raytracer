@@ -1,4 +1,6 @@
+use crate::point::Point3;
 use crate::vector::Vector3;
+
 use rand;
 
 pub fn random_unit_disk() -> Vector3 {
@@ -62,7 +64,7 @@ const NOISE_DATA: [usize; NOISE_SIZE * 2] = [
     184, 214, 137, 230, 255, 242, 72, 199,
 ];
 // Perlin noise
-pub fn noise(p: &Vector3) -> f32 {
+pub fn noise(p: &Point3) -> f32 {
     let mut ix = p.x.floor() as i32;
     let mut iy = p.y.floor() as i32;
     let mut iz = p.z.floor() as i32;
@@ -127,7 +129,7 @@ fn smooth(f: f32) -> f32 {
     return 6_f32 * f_4 * f - 15_f32 * f_4 + 10_f32 * f_3;
 }
 
-pub fn turbulence(p: &Vector3, depth: u32, omega: f32) -> f32 {
+pub fn turbulence(p: &Point3, depth: u32, omega: f32) -> f32 {
     let mut sum = 0.0_f32;
     let mut p_copy = *p;
     let mut weight = 1.0_f32;

@@ -1,3 +1,5 @@
+use crate::color::RGB;
+use crate::point::Point3;
 use crate::ray::Ray;
 use crate::texture::Texture;
 use crate::utils;
@@ -37,20 +39,20 @@ pub trait Material {
     fn scatter(
         &self,
         in_ray: &Ray,
-        hit_point: &Vector3,
+        hit_point: &Point3,
         normal: &Vector3,
         u: f32,
         v: f32,
-    ) -> Option<(Vector3, Ray)>;
+    ) -> Option<(RGB, Ray)>;
 
     fn emit(
         &self,
         _in_ray: &Ray,
-        _hit_point: &Vector3,
+        _hit_point: &Point3,
         _normal: &Vector3,
         _u: f32,
         _v: f32,
-    ) -> Option<Vector3> {
+    ) -> Option<RGB> {
         None
     }
 }
@@ -69,11 +71,11 @@ impl Material for Lambert {
     fn scatter(
         &self,
         _in_ray: &Ray,
-        hit_point: &Vector3,
+        hit_point: &Point3,
         normal: &Vector3,
         u: f32,
         v: f32,
-    ) -> Option<(Vector3, Ray)> {
+    ) -> Option<(RGB, Ray)> {
         let target = *hit_point + *normal + utils::unit_sphere_random();
         Some((
             self.albedo.value(u, v, hit_point),
@@ -108,11 +110,11 @@ impl Material for Metal {
     fn scatter(
         &self,
         in_ray: &Ray,
-        hit_point: &Vector3,
+        hit_point: &Point3,
         normal: &Vector3,
         u: f32,
         v: f32,
-    ) -> Option<(Vector3, Ray)> {
+    ) -> Option<(RGB, Ray)> {
         let reflected = reflect(in_ray.dir.normalized(), *normal);
         let out_ray_dir = reflected + self.roughness * utils::unit_sphere_random();
 
@@ -136,11 +138,11 @@ impl Material for Dielectric {
     fn scatter(
         &self,
         in_ray: &Ray,
-        hit_point: &Vector3,
+        hit_point: &Point3,
         normal: &Vector3,
         _u: f32,
         _v: f32,
-    ) -> Option<(Vector3, Ray)> {
+    ) -> Option<(RGB, Ray)> {
         let normal_dot = in_ray.dir.dot(*normal);
 
         let (outward_normal, index, cosine) = if normal_dot > 0.0_f32 {
@@ -176,7 +178,7 @@ impl Material for Dielectric {
         };
 
         Some((
-            Vector3::new(1.0_f32, 1.0_f32, 1.0_f32), // Attenuation is perfect
+            RGB::new(1.0_f32, 1.0_f32, 1.0_f32), // Attenuation is perfect
             out_ray,
         ))
     }
@@ -196,22 +198,22 @@ impl Material for DiffuseLight {
     fn scatter(
         &self,
         _in_ray: &Ray,
-        _hit_point: &Vector3,
+        _hit_point: &Point3,
         _normal: &Vector3,
         _u: f32,
         _v: f32,
-    ) -> Option<(Vector3, Ray)> {
+    ) -> Option<(RGB, Ray)> {
         None
     }
 
     fn emit(
         &self,
         _in_ray: &Ray,
-        hit_point: &Vector3,
+        hit_point: &Point3,
         _normal: &Vector3,
         u: f32,
         v: f32,
-    ) -> Option<Vector3> {
+    ) -> Option<RGB> {
         Some(self.emission.value(u, v, hit_point))
     }
 }

@@ -1,8 +1,9 @@
+use crate::color::RGB;
+use crate::point::Point3;
 use crate::ray::Ray;
 use crate::shape::Shape;
 use crate::utils;
 use crate::vector::Axis;
-use crate::vector::Vector3;
 
 use std::cmp;
 use std::mem;
@@ -13,9 +14,9 @@ pub fn trace(
     r: &Ray,
     shape_aggregate: &dyn Aggregate,
     workspace: &mut Workspace,
-    bg_func: &dyn Fn(&Ray) -> Vector3,
+    bg_func: &dyn Fn(&Ray) -> RGB,
     depth: i32,
-) -> Vector3 {
+) -> RGB {
     let hit_shape = hit(shape_aggregate, workspace, r);
 
     if depth < MAX_DEPTH {
@@ -48,7 +49,7 @@ pub fn trace(
                             );
                     }
                     None => {
-                        return Vector3::new_empty();
+                        return RGB::black();
                     }
                 }
             }
@@ -167,7 +168,7 @@ fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Box<dyn Shape>>) {
     // Compute centroid (center of bounding boxes) bounds
     let mut centroid_bounds = AABB::new_empty();
     for shape in &shapes {
-        centroid_bounds = AABB::union_vector(&centroid_bounds, &shape.get_bounding_box().center());
+        centroid_bounds = AABB::union_point(&centroid_bounds, &shape.get_bounding_box().center());
     }
     // We will cut over the dimension for which bounding box centers cover the
     // largest area
@@ -369,38 +370,42 @@ impl Aggregate for BVH {
 
 // Axis Aligned Bounding Box
 pub struct AABB {
-    min: Vector3,
-    max: Vector3,
+    min: Point3,
+    max: Point3,
 }
 
 impl AABB {
-    pub fn new(min: Vector3, max: Vector3) -> AABB {
+    pub fn new(min: Point3, max: Point3) -> AABB {
         AABB { min: min, max: max }
     }
 
     fn new_empty() -> AABB {
         AABB {
-            min: Vector3::new_empty(),
-            max: Vector3::new_empty(),
+            min: Point3::origin(),
+            max: Point3::origin(),
         }
     }
 
     fn union(box1: &AABB, box2: &AABB) -> AABB {
         AABB {
-            min: Vector3::min(box1.min, box2.min),
-            max: Vector3::max(box1.max, box2.max),
+            min: Point3::min(box1.min, box2.min),
+            max: Point3::max(box1.max, box2.max),
         }
     }
 
-    fn union_vector(box1: &AABB, vector: &Vector3) -> AABB {
+    fn union_point(box1: &AABB, point: &Point3) -> AABB {
         AABB {
-            min: Vector3::min(box1.min, *vector),
-            max: Vector3::max(box1.max, *vector),
+            min: Point3::min(box1.min, *point),
+            max: Point3::max(box1.max, *point),
         }
     }
 
-    fn center(&self) -> Vector3 {
-        0.5_f32 * self.min + 0.5_f32 * self.max
+    fn center(&self) -> Point3 {
+        Point3::new(
+            self.min.x * 0.5_f32 + self.max.x * 0.5_f32,
+            self.min.y * 0.5_f32 + self.max.y * 0.5_f32,
+            self.min.z * 0.5_f32 + self.max.z * 0.5_f32,
+        )
     }
 
     fn largest_axis(&self) -> Axis {

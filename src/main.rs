@@ -1,8 +1,10 @@
 // Local modules
 mod aggregate;
 mod camera;
+mod color;
 mod material;
 mod matrix;
+mod point;
 mod ray;
 mod resources;
 mod scene;
@@ -19,9 +21,9 @@ use rand;
 use std::{convert::TryInto, env, fs, fs::OpenOptions, path, process};
 
 // Use statements for local modules
+use crate::color::RGB;
 use crate::ray::Ray;
 use crate::resources::Resources;
-use crate::vector::Vector3;
 
 // Constants
 const COLOR_SPACE: f32 = 255.99_f32;
@@ -69,7 +71,7 @@ fn main() {
     // Execute path trace for each pixel of our output
     for y in 0..res_y {
         for x in 0..res_x {
-            let mut color = Vector3::new_empty();
+            let mut color = RGB::black();
             for _ in 0..samples {
                 // Note the use of rand::random. Consider switching to an explicit
                 // use of SmallRng, which is a non-secure, but fast, pseudo-RNG.
@@ -89,11 +91,11 @@ fn main() {
                     );
             }
             color = color / samples as f32;
-            color = Vector3::new(color.x.sqrt(), color.y.sqrt(), color.z.sqrt());
+            color = RGB::new(color.r.sqrt(), color.g.sqrt(), color.b.sqrt());
 
-            data.push((color.x * COLOR_SPACE) as u8);
-            data.push((color.y * COLOR_SPACE) as u8);
-            data.push((color.z * COLOR_SPACE) as u8);
+            data.push((color.r * COLOR_SPACE) as u8);
+            data.push((color.g * COLOR_SPACE) as u8);
+            data.push((color.b * COLOR_SPACE) as u8);
         }
     }
 
@@ -107,14 +109,14 @@ fn main() {
     }
 }
 
-fn background(_r: &Ray) -> Vector3 {
+fn background(_r: &Ray) -> RGB {
     /*
     // Sky blend
     let dir_normal = r.dir.normalized();
     let t = 0.5_f32 * (dir_normal.y + 1.0_f32);
 
-    Vector3::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t)
-        + Vector3::new(0.5_f32, 0.7_f32, 1.0_f32) * t
+    Point3::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t)
+        + Point3::new(0.5_f32, 0.7_f32, 1.0_f32) * t
     */
-    Vector3::new_empty()
+    RGB::black()
 }

@@ -1,3 +1,4 @@
+use crate::point::Point3;
 use crate::vector::Vector3;
 
 use std::ops;
@@ -82,11 +83,18 @@ impl ops::Mul for Matrix4 {
 impl ops::Mul<Vector3> for &Matrix4 {
     type Output = Vector3;
     fn mul(self, rhs: Vector3) -> Vector3 {
-        // TODO: I am very aware I am not doing homogeneous coordinates correctly right now,
-        // this is a stopgap measure. I define a lot of what are really points as Vector3's,
-        // so I am defaulting to Point behavior since I need to use the transformations for
-        // them. Next commit will refactor out a point class and clean this up so it is right.
         Vector3::new(
+            self.data[0][0] * rhs.x + self.data[0][1] * rhs.y + self.data[0][2] * rhs.z,
+            self.data[1][0] * rhs.x + self.data[1][1] * rhs.y + self.data[1][2] * rhs.z,
+            self.data[2][0] * rhs.x + self.data[2][1] * rhs.y + self.data[2][2] * rhs.z,
+        )
+    }
+}
+
+impl ops::Mul<Point3> for &Matrix4 {
+    type Output = Point3;
+    fn mul(self, rhs: Point3) -> Point3 {
+        Point3::new(
             self.data[0][0] * rhs.x
                 + self.data[0][1] * rhs.y
                 + self.data[0][2] * rhs.z

@@ -9,6 +9,7 @@ use crate::shape::Shape;
 use crate::texture;
 use crate::texture::Texture;
 use crate::transform::Transform;
+use crate::volume;
 
 use serde::Deserialize;
 use serde_json;
@@ -261,6 +262,7 @@ fn deserialize_material(
             serde_json::Value::clone(json),
         )?),
         "DiffuseLight" => deserialize_diffuse_light(json, textures),
+        "Isotropic" => deserialize_isotropic(json, textures),
         _ => Err(DeserializeError::LocalError(format!(
             "Unsupported material type: {}",
             material_type
@@ -337,6 +339,28 @@ fn deserialize_diffuse_light(
     ))));
 }
 
+// Isotropic Phase Function
+#[derive(Deserialize)]
+struct IsotropicDescription {
+    albedo: String,
+}
+
+fn deserialize_isotropic(
+    json: &serde_json::Value,
+    textures: &HashMap<String, Rc<dyn Texture>>,
+) -> Result<Rc<dyn Material>, DeserializeError> {
+    let iso_desc: IsotropicDescription = serde_json::from_value(serde_json::Value::clone(json))?;
+    if !textures.contains_key(&iso_desc.albedo) {
+        return Err(DeserializeError::LocalError(format!(
+            "Missing Texture {} for Isotropic.",
+            iso_desc.albedo
+        )));
+    }
+    return Ok(Rc::new(volume::Isotropic::new(Rc::clone(
+        &textures[&iso_desc.albedo],
+    ))));
+}
+
 fn deserialize_shape(
     json: &serde_json::Value,
     spec_dir: &path::Path,
@@ -352,8 +376,12 @@ fn deserialize_shape(
 
     let shape_type = identify_type(json)?;
     match shape_type {
-        "Sphere" => deserialize_sphere(json, materials, shapes),
+        "Sphere" => {
+            shapes.push(deserialize_sphere(json, materials)?);
+            Ok(())
+        }
         "Mesh" => deserialize_mesh(json, spec_dir, materials, shapes),
+        "ConstantMedium" => deserialize_constant_medium(json, materials, shapes),
         _ => {
             return Err(DeserializeError::LocalError(format!(
                 "Unknown Shape 'type' {} given.",
@@ -374,8 +402,7 @@ struct SphereDescription {
 fn deserialize_sphere(
     json: &serde_json::Value,
     materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Box<dyn Shape>>,
-) -> Result<(), DeserializeError> {
+) -> Result<Box<shape::Sphere>, DeserializeError> {
     let sphere_desc: SphereDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !materials.contains_key(&sphere_desc.material) {
         return Err(DeserializeError::LocalError(format!(
@@ -383,12 +410,11 @@ fn deserialize_sphere(
             sphere_desc.material
         )));
     }
-    shapes.push(Box::new(shape::Sphere::new(
+    return Ok(Box::new(shape::Sphere::new(
         sphere_desc.center,
         sphere_desc.radius,
         Rc::clone(&materials[&sphere_desc.material]),
     )));
-    return Ok(());
 }
 
 // Mesh
@@ -481,6 +507,38 @@ fn deserialize_mesh(
             }
         }
     }
+    return Ok(());
+}
+
+// ConstantMedium
+#[derive(Deserialize)]
+struct ConstantMediumDescription {
+    boundary: serde_json::Value,
+    density: f32,
+    phase_func: String,
+}
+
+fn deserialize_constant_medium(
+    json: &serde_json::Value,
+    materials: &HashMap<String, Rc<dyn Material>>,
+    shapes: &mut Vec<Box<dyn Shape>>,
+) -> Result<(), DeserializeError> {
+    let med_desc: ConstantMediumDescription =
+        serde_json::from_value(serde_json::Value::clone(json))?;
+    if !materials.contains_key(&med_desc.phase_func) {
+        return Err(DeserializeError::LocalError(format!(
+            "Missing Phase Function {} for ConstantMedium.",
+            med_desc.phase_func
+        )));
+    }
+    // TODO: For now, just spheres are valid shapes for boundaries
+    let boundary = deserialize_sphere(&med_desc.boundary, materials)?;
+
+    shapes.push(Box::new(volume::ConstantMedium::new(
+        boundary,
+        med_desc.density,
+        Rc::clone(&materials[&med_desc.phase_func]),
+    )));
     return Ok(());
 }
 

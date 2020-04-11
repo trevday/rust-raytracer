@@ -93,6 +93,10 @@
 		"DiffuseLight": {
 			"type": "DiffuseLight",
 			"emission": "Test"
+		},
+		"IsotropicPhase": {
+			"type": "Isotropic",
+			"albedo": "Noise"
 		}
 	},
 	"Aggregate": "BVH",
@@ -131,14 +135,19 @@
 			"material": "Lambert1"
 		},
 		{
-			"type": "Sphere",
-			"center": [
-				1,
-				0,
-				-1
-			],
-			"radius": 0.5,
-			"material": "Metal1"
+			"type": "ConstantMedium",
+			"boundary": {
+				"type": "Sphere",
+				"center": [
+					1,
+					0,
+					-1
+				],
+				"radius": 0.5,
+				"material": "Metal1"
+			},
+			"density": 0.2,
+			"phase_func": "IsotropicPhase"
 		},
 		{
 			"type": "Sphere",

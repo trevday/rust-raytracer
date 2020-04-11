@@ -13,6 +13,7 @@ mod texture;
 mod transform;
 mod utils;
 mod vector;
+mod volume;
 
 // External/std libraries for main
 use image::png::PNGEncoder;
@@ -109,14 +110,10 @@ fn main() {
     }
 }
 
-fn background(_r: &Ray) -> RGB {
-    /*
+fn background(r: &Ray) -> RGB {
     // Sky blend
     let dir_normal = r.dir.normalized();
     let t = 0.5_f32 * (dir_normal.y + 1.0_f32);
 
-    Point3::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t)
-        + Point3::new(0.5_f32, 0.7_f32, 1.0_f32) * t
-    */
-    RGB::black()
+    RGB::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t) + RGB::new(0.5_f32, 0.7_f32, 1.0_f32) * t
 }

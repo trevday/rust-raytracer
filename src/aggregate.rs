@@ -370,8 +370,8 @@ impl Aggregate for BVH {
 
 // Axis Aligned Bounding Box
 pub struct AABB {
-    min: Point3,
-    max: Point3,
+    pub min: Point3,
+    pub max: Point3,
 }
 
 impl AABB {

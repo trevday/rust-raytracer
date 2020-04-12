@@ -126,46 +126,59 @@
 		},
 		{
 			"type": "Sphere",
-			"center": [
-				0,
-				-100.5,
-				-1
-			],
+			"transform": {
+				"translate": [
+					0,
+					-100.5,
+					-1
+				]
+			},
 			"radius": 100,
 			"material": "Lambert1"
 		},
 		{
-			"type": "ConstantMedium",
-			"boundary": {
-				"type": "Sphere",
-				"center": [
+			"type": "Sphere",
+			"transform": {
+				"translate": [
 					1,
 					0,
 					-1
 				],
-				"radius": 0.5,
-				"material": "Metal1"
+				"rotate": [
+					0,
+					90,
+					0
+				],
+				"scale": [
+					1,
+					0.5,
+					1
+				]
 			},
-			"density": 0.2,
-			"phase_func": "IsotropicPhase"
+			"radius": 0.5,
+			"material": "Metal1"
 		},
 		{
 			"type": "Sphere",
-			"center": [
-				-1,
-				0,
-				-1
-			],
+			"transform": {
+				"translate": [
+					-1,
+					0,
+					-1
+				]
+			},
 			"radius": 0.5,
 			"material": "Dielectric1"
 		},
 		{
 			"type": "Sphere",
-			"center": [
-				-1,
-				0,
-				-1
-			],
+			"transform": {
+				"translate": [
+					-1,
+					0,
+					-1
+				]
+			},
 			"radius": -0.45,
 			"material": "Dielectric1"
 		}

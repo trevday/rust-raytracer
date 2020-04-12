@@ -394,9 +394,11 @@ fn deserialize_shape(
 // Sphere
 #[derive(Deserialize)]
 struct SphereDescription {
-    center: Point3,
     radius: f32,
     material: String,
+
+    #[serde(default = "Transform::new")]
+    transform: Transform,
 }
 
 fn deserialize_sphere(
@@ -410,11 +412,16 @@ fn deserialize_sphere(
             sphere_desc.material
         )));
     }
-    return Ok(Box::new(shape::Sphere::new(
-        sphere_desc.center,
-        sphere_desc.radius,
-        Rc::clone(&materials[&sphere_desc.material]),
-    )));
+    return Ok(Box::new(
+        match shape::Sphere::new(
+            &sphere_desc.transform.create_matrix(),
+            sphere_desc.radius,
+            Rc::clone(&materials[&sphere_desc.material]),
+        ) {
+            Ok(s) => s,
+            Err(e) => return Err(DeserializeError::LocalError(String::from(e))),
+        },
+    ));
 }
 
 // Mesh

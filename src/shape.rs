@@ -1,5 +1,6 @@
 use crate::aggregate::AABB;
 use crate::material::Material;
+use crate::matrix::Matrix4;
 use crate::point::Point3;
 use crate::ray::Ray;
 use crate::vector::Vector3;
@@ -16,7 +17,8 @@ pub trait Shape {
 }
 
 pub struct Sphere {
-    center: Point3,
+    local_to_world: Matrix4,
+    world_to_local: Matrix4,
     radius: f32,
     // NOTE: There is a tradeoff here between making an enum struct and a pointer to a trait object.
     // The enum struct would be slightly more efficient as it is immediately available
@@ -31,21 +33,28 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f32, mat: Rc<dyn Material>) -> Sphere {
-        Sphere {
-            center: center,
+    pub fn new(
+        local_to_world: &Matrix4,
+        radius: f32,
+        mat: Rc<dyn Material>,
+    ) -> Result<Sphere, &'static str> {
+        Ok(Sphere {
+            local_to_world: local_to_world.clone(),
+            world_to_local: local_to_world.inverse()?,
             radius: radius,
             material: mat,
-        }
+        })
     }
 }
 
 const ONE_OVER_2_PI: f32 = 1.0_f32 / (2.0_f32 * f32::consts::PI);
 impl Shape for Sphere {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32> {
-        let towards_origin = r.origin - self.center;
-        let a = r.dir.dot(r.dir);
-        let b = 2.0_f32 * towards_origin.dot(r.dir);
+        let local_ray = &self.world_to_local * r;
+
+        let towards_origin = local_ray.origin - Point3::origin();
+        let a = local_ray.dir.dot(local_ray.dir);
+        let b = 2.0_f32 * towards_origin.dot(local_ray.dir);
         let c = towards_origin.dot(towards_origin) - (self.radius * self.radius);
         let discriminant = b * b - 4.0_f32 * a * c;
 
@@ -63,11 +72,14 @@ impl Shape for Sphere {
     }
 
     fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3 {
-        ((r.point_at(t_hit) - self.center) / self.radius).normalized()
+        let local_ray = &self.world_to_local * r;
+        &self.local_to_world
+            * (((local_ray.point_at(t_hit) - Point3::origin()) / self.radius).normalized())
     }
 
     fn get_uv_coords(&self, r: &Ray, t_hit: f32) -> (f32, f32) {
-        let unit_sphere_point = (r.point_at(t_hit) - self.center) / self.radius;
+        let local_ray = &self.world_to_local * r;
+        let unit_sphere_point = (local_ray.point_at(t_hit) - Point3::origin()) / self.radius;
         (
             // u
             (1.0_f32
@@ -83,10 +95,11 @@ impl Shape for Sphere {
     }
 
     fn get_bounding_box(&self) -> AABB {
-        AABB::new(
-            self.center - Vector3::new(self.radius, self.radius, self.radius),
-            self.center + Vector3::new(self.radius, self.radius, self.radius),
-        )
+        &self.local_to_world
+            * &AABB::new(
+                Point3::origin() - Vector3::new(self.radius, self.radius, self.radius),
+                Point3::origin() + Vector3::new(self.radius, self.radius, self.radius),
+            )
     }
 }
 

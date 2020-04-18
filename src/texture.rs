@@ -74,6 +74,7 @@ impl Texture for Image {
         let i = (u * self.img.width() as f32) as u32;
         let j = ((1_f32 - v) * self.img.height() as f32) as u32;
         let pixel = self.img.get_pixel(i, j);
+        // TODO: Probably need to undo gamma correction here after reading the image
         RGB::new(
             pixel[0] as f32 / 255_f32,
             pixel[1] as f32 / 255_f32,

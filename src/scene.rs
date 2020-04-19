@@ -381,7 +381,7 @@ fn deserialize_shape(
             Ok(())
         }
         "Mesh" => deserialize_mesh(json, spec_dir, materials, shapes),
-        "ConstantMedium" => deserialize_constant_medium(json, materials, shapes),
+        "ConstantMedium" => deserialize_constant_medium(json, spec_dir, materials, shapes),
         _ => {
             return Err(DeserializeError::LocalError(format!(
                 "Unknown Shape 'type' {} given.",
@@ -527,6 +527,7 @@ struct ConstantMediumDescription {
 
 fn deserialize_constant_medium(
     json: &serde_json::Value,
+    spec_dir: &path::Path,
     materials: &HashMap<String, Rc<dyn Material>>,
     shapes: &mut Vec<Box<dyn Shape>>,
 ) -> Result<(), DeserializeError> {
@@ -538,11 +539,17 @@ fn deserialize_constant_medium(
             med_desc.phase_func
         )));
     }
-    // TODO: For now, just spheres are valid shapes for boundaries
-    let boundary = deserialize_sphere(&med_desc.boundary, materials)?;
+    let mut shapes_temp = Vec::new();
+    deserialize_shape(&med_desc.boundary, spec_dir, materials, &mut shapes_temp)?;
+    // TODO: For now, just single shapes are valid for boundaries
+    if shapes_temp.len() != 1 {
+        return Err(DeserializeError::LocalError(String::from(
+            "Only single shapes are allowed for constant mediums at the moment.",
+        )));
+    }
 
     shapes.push(Box::new(volume::ConstantMedium::new(
-        boundary,
+        shapes_temp.remove(0_usize),
         med_desc.density,
         Rc::clone(&materials[&med_desc.phase_func]),
     )));

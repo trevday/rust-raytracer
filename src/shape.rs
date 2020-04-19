@@ -8,10 +8,16 @@ use crate::vector::Vector3;
 use std::f32;
 use std::rc::Rc;
 
+pub struct HitProperties {
+    pub hit_point: Point3,
+    pub normal: Vector3,
+    pub u: f32,
+    pub v: f32,
+}
+
 pub trait Shape {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
-    fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3;
-    fn get_uv_coords(&self, r: &Ray, t_hit: f32) -> (f32, f32);
+    fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties;
     fn get_material(&self) -> &Rc<dyn Material>;
     fn get_bounding_box(&self) -> AABB;
 }
@@ -71,23 +77,22 @@ impl Shape for Sphere {
         return None;
     }
 
-    fn derive_normal(&self, r: &Ray, t_hit: f32) -> Vector3 {
-        let local_ray = &self.world_to_local * r;
-        &self.local_to_world
-            * (((local_ray.point_at(t_hit) - Point3::origin()) / self.radius).normalized())
-    }
-
-    fn get_uv_coords(&self, r: &Ray, t_hit: f32) -> (f32, f32) {
+    fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties {
         let local_ray = &self.world_to_local * r;
         let unit_sphere_point = (local_ray.point_at(t_hit) - Point3::origin()) / self.radius;
-        (
-            // u
-            (1.0_f32
+
+        HitProperties {
+            hit_point: r.point_at(t_hit),
+
+            normal: &self.local_to_world
+                * (((local_ray.point_at(t_hit) - Point3::origin()) / self.radius).normalized()),
+
+            u: (1.0_f32
                 - ((unit_sphere_point.z.atan2(unit_sphere_point.x) + f32::consts::PI)
                     * ONE_OVER_2_PI)),
-            // v
-            ((unit_sphere_point.y.asin() + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
-        )
+
+            v: ((unit_sphere_point.y.asin() + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
+        }
     }
 
     fn get_material(&self) -> &Rc<dyn Material> {
@@ -247,7 +252,7 @@ impl Shape for Triangle {
         return None;
     }
 
-    fn derive_normal(&self, r: &Ray, _t_hit: f32) -> Vector3 {
+    fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties {
         let vertex0 = self.triangle_mesh.vertices[self.v0];
         let vertex1 = self.triangle_mesh.vertices[self.v1];
         let vertex2 = self.triangle_mesh.vertices[self.v2];
@@ -262,25 +267,11 @@ impl Shape for Triangle {
         let p_vec = r.dir.cross(edge_2);
         let determinant = edge_1.dot(p_vec);
 
+        // Calculate normal
         let mut normal = edge_1.cross(edge_2).normalized();
         if determinant < 0.0_f32 {
             normal = -normal; // Ray came from the back so reverse the normal
         }
-        return normal;
-    }
-
-    fn get_uv_coords(&self, r: &Ray, _t_hit: f32) -> (f32, f32) {
-        let vertex0 = self.triangle_mesh.vertices[self.v0];
-        let vertex1 = self.triangle_mesh.vertices[self.v1];
-        let vertex2 = self.triangle_mesh.vertices[self.v2];
-
-        // TODO: More repeated work here; see TODO in derive_normal.
-        // There may be a way to avoid repeating work here and
-        // reverse calculate data from the hit point.
-        let edge_1 = vertex1 - vertex0;
-        let edge_2 = vertex2 - vertex0;
-        let p_vec = r.dir.cross(edge_2);
-        let determinant = edge_1.dot(p_vec);
 
         let inverse_determinant = 1.0_f32 / determinant;
         let t_vec = r.origin - vertex0;
@@ -305,7 +296,14 @@ impl Shape for Triangle {
         };
 
         // Apply to UV coordinates from mesh
-        return ((u0 * u + u1 * v + u2 * w), (v0 * u + v1 * v + v2 * w));
+        let (u, v) = ((u0 * u + u1 * v + u2 * w), (v0 * u + v1 * v + v2 * w));
+
+        HitProperties {
+            hit_point: r.point_at(t_hit),
+            normal: normal,
+            u: u,
+            v: v,
+        }
     }
 
     fn get_material(&self) -> &Rc<dyn Material> {

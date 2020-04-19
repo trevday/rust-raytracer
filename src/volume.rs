@@ -1,12 +1,11 @@
 use crate::aggregate::AABB;
 use crate::color::RGB;
 use crate::material::Material;
-use crate::point::Point3;
 use crate::ray::Ray;
+use crate::shape::HitProperties;
 use crate::shape::Shape;
 use crate::texture::Texture;
 use crate::utils::unit_sphere_random;
-use crate::vector::Vector3;
 
 use rand;
 use std::rc::Rc;
@@ -25,17 +24,11 @@ impl Isotropic {
 }
 
 impl Material for Isotropic {
-    fn scatter(
-        &self,
-        _in_ray: &Ray,
-        hit_point: &Point3,
-        _normal: &Vector3,
-        u: f32,
-        v: f32,
-    ) -> Option<(RGB, Ray)> {
+    fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)> {
         Some((
-            self.albedo.value(u, v, hit_point),
-            Ray::new(*hit_point, unit_sphere_random()),
+            self.albedo
+                .value(hit_props.u, hit_props.v, &hit_props.hit_point),
+            Ray::new(hit_props.hit_point, unit_sphere_random()),
         ))
     }
 }
@@ -98,13 +91,8 @@ impl Shape for ConstantMedium {
         return Some(t_hit1 + (hit_dist / r.dir.length()));
     }
 
-    fn derive_normal(&self, _r: &Ray, _t_hit: f32) -> Vector3 {
-        // Should be arbitrary for Phase Functions
-        Vector3::new_empty()
-    }
-
-    fn get_uv_coords(&self, r: &Ray, t_hit: f32) -> (f32, f32) {
-        self.boundary.get_uv_coords(r, t_hit)
+    fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties {
+        self.boundary.get_hit_properties(r, t_hit)
     }
 
     fn get_material(&self) -> &Rc<dyn Material> {

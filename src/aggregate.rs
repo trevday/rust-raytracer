@@ -23,19 +23,18 @@ pub fn trace(
         match hit_shape {
             // Some if we have a hit
             Some((s, t)) => {
-                let normal = s.derive_normal(r, t);
-                let (u, v) = s.get_uv_coords(r, t);
-                let (u, v) = (utils::clamp(u, 0_f32, 1_f32), utils::clamp(v, 0_f32, 1_f32));
-                let hit_point = r.point_at(t);
+                let mut hit_props = s.get_hit_properties(r, t);
+                hit_props.u = utils::clamp(hit_props.u, 0_f32, 1_f32);
+                hit_props.v = utils::clamp(hit_props.v, 0_f32, 1_f32);
 
-                match s.get_material().emit(r, &hit_point, &normal, u, v) {
+                match s.get_material().emit(r, &hit_props) {
                     Some(e) => {
                         return e;
                     }
                     None => {}
                 }
 
-                match s.get_material().scatter(r, &hit_point, &normal, u, v) {
+                match s.get_material().scatter(r, &hit_props) {
                     // Some if we scattered
                     Some((attenuation, scattered_ray)) => {
                         // Recursive case

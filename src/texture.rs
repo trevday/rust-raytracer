@@ -8,6 +8,10 @@ use std::{convert::TryFrom, rc::Rc};
 
 pub trait Texture {
     fn value(&self, u: f32, v: f32, p: &Point3) -> RGB;
+    fn bump_value(&self, u: f32, v: f32, p: &Point3) -> f32 {
+        let bump = self.value(u, v, p);
+        (bump.r + bump.g + bump.b) / 3.0_f32
+    }
 }
 
 #[derive(Deserialize)]
@@ -71,8 +75,8 @@ impl Image {
 }
 impl Texture for Image {
     fn value(&self, u: f32, v: f32, _p: &Point3) -> RGB {
-        let i = (u * self.img.width() as f32) as u32;
-        let j = ((1_f32 - v) * self.img.height() as f32) as u32;
+        let i = (u * self.img.width() as f32) as u32 % self.img.width();
+        let j = ((1_f32 - v) * self.img.height() as f32) as u32 % self.img.height();
         let pixel = self.img.get_pixel(i, j);
         // TODO: Probably need to undo gamma correction here after reading the image
         RGB::new(

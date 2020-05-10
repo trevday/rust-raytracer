@@ -45,17 +45,54 @@ pub trait Material {
 
 pub struct Lambert {
     albedo: Rc<dyn Texture>,
+    // TODO: Expose to other materials, such as Metal
+    bump_map: Option<Rc<dyn Texture>>,
 }
 
 impl Lambert {
-    pub fn new(albedo: Rc<dyn Texture>) -> Lambert {
-        Lambert { albedo: albedo }
+    pub fn new(albedo: Rc<dyn Texture>, bump_map: Option<Rc<dyn Texture>>) -> Lambert {
+        Lambert {
+            albedo: albedo,
+            bump_map: bump_map,
+        }
     }
 }
 
+const BUMP_DELTA: f32 = 0.005_f32; // TODO: Make bump delta dynamic
 impl Material for Lambert {
     fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)> {
-        let target = hit_props.hit_point + hit_props.normal + utils::unit_sphere_random();
+        // Apply bump map if present
+        // https://www.microsoft.com/en-us/research/wp-content/uploads/1978/01/p286-blinn.pdf
+        let bump_modified_normal = match &self.bump_map {
+            None => hit_props.normal,
+            Some(b) => {
+                // Get base value of bump at u, v, p
+                let displacement = b.bump_value(hit_props.u, hit_props.v, &hit_props.hit_point);
+                // Create partial derivatives for bump
+                // by shifting u, v, and p
+                let displacement_u = b.bump_value(
+                    hit_props.u + BUMP_DELTA,
+                    hit_props.v,
+                    &(hit_props.hit_point + BUMP_DELTA * hit_props.pu),
+                );
+                let displacement_v = b.bump_value(
+                    hit_props.u,
+                    hit_props.v + BUMP_DELTA,
+                    &(hit_props.hit_point + BUMP_DELTA * hit_props.pv),
+                );
+
+                // Determine new Pu and Pv
+                let new_pu = hit_props.pu
+                    + ((displacement_u - displacement) / BUMP_DELTA) * hit_props.normal;
+                let new_pv = hit_props.pv
+                    + ((displacement_v - displacement) / BUMP_DELTA) * hit_props.normal;
+
+                // Cross product of displaced Pu and Pv yields the new normal
+                new_pu.cross(new_pv).normalized()
+            }
+        };
+
+        let target = hit_props.hit_point + bump_modified_normal + utils::unit_sphere_random();
         Some((
             self.albedo
                 .value(hit_props.u, hit_props.v, &hit_props.hit_point),

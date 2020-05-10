@@ -274,6 +274,7 @@ fn deserialize_material(
 #[derive(Deserialize)]
 struct LambertDescription {
     albedo: String,
+    bump_map: Option<String>,
 }
 
 fn deserialize_lambert(
@@ -287,9 +288,14 @@ fn deserialize_lambert(
             lambert_desc.albedo
         )));
     }
-    return Ok(Rc::new(material::Lambert::new(Rc::clone(
-        &textures[&lambert_desc.albedo],
-    ))));
+    let bump_map = match &lambert_desc.bump_map {
+        None => None,
+        Some(b) => Some(Rc::clone(&textures[b])),
+    };
+    return Ok(Rc::new(material::Lambert::new(
+        Rc::clone(&textures[&lambert_desc.albedo]),
+        bump_map,
+    )));
 }
 
 // Metal

@@ -3,6 +3,7 @@ use crate::material::Material;
 use crate::matrix::Matrix4;
 use crate::point::Point3;
 use crate::ray::Ray;
+use crate::utils;
 use crate::vector::Vector3;
 
 use std::f32;
@@ -13,6 +14,8 @@ pub struct HitProperties {
     pub normal: Vector3,
     pub u: f32,
     pub v: f32,
+    pub pu: Vector3,
+    pub pv: Vector3,
 }
 
 pub trait Shape {
@@ -79,7 +82,24 @@ impl Shape for Sphere {
 
     fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties {
         let local_ray = &self.world_to_local * r;
-        let unit_sphere_point = (local_ray.point_at(t_hit) - Point3::origin()) / self.radius;
+        let mut hit_point = local_ray.point_at(t_hit);
+        hit_point = hit_point * (self.radius.abs() / (hit_point - Point3::origin()).length());
+
+        let theta = utils::clamp(hit_point.y / self.radius, -1.0_f32, 1.0_f32).asin();
+        let inverse_y_radius = (self.radius.signum() * 1.0_f32)
+            / (hit_point.x * hit_point.x + hit_point.z * hit_point.z).sqrt();
+
+        let pu = Vector3::new(
+            2.0_f32 * f32::consts::PI * hit_point.z,
+            0.0_f32,
+            -2.0_f32 * f32::consts::PI * hit_point.x,
+        );
+        let pv = (-f32::consts::PI)
+            * Vector3::new(
+                hit_point.y * hit_point.x * inverse_y_radius,
+                (-self.radius) * theta.cos(),
+                hit_point.y * hit_point.z * inverse_y_radius,
+            );
 
         HitProperties {
             hit_point: r.point_at(t_hit),
@@ -87,11 +107,11 @@ impl Shape for Sphere {
             normal: &self.local_to_world
                 * (((local_ray.point_at(t_hit) - Point3::origin()) / self.radius).normalized()),
 
-            u: (1.0_f32
-                - ((unit_sphere_point.z.atan2(unit_sphere_point.x) + f32::consts::PI)
-                    * ONE_OVER_2_PI)),
+            u: (1.0_f32 - ((hit_point.z.atan2(hit_point.x) + f32::consts::PI) * ONE_OVER_2_PI)),
+            v: ((theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
 
-            v: ((unit_sphere_point.y.asin() + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
+            pu: &self.local_to_world * pu,
+            pv: &self.local_to_world * pv,
         }
     }
 
@@ -298,11 +318,47 @@ impl Shape for Triangle {
         // Apply to UV coordinates from mesh
         let (u, v) = ((u0 * u + u1 * v + u2 * w), (v0 * u + v1 * v + v2 * w));
 
+        // TODO: Pre-calculate and cache the partial derivatives for each triangle?
+        let mut pu = Vector3::new_empty();
+        let mut pv = Vector3::new_empty();
+        let (du02, dv02) = ((u0 - u2), (v0 - v2));
+        let (du12, dv12) = ((u1 - u2), (v1 - v2));
+        let dp02 = vertex0 - vertex2;
+        let dp12 = vertex1 - vertex2;
+        let uv_determinant = du02 * dv12 - dv02 * du12;
+        let degenerate_uv = uv_determinant.abs() < std::f32::EPSILON;
+        if !degenerate_uv {
+            let inv_det = 1.0_f32 / uv_determinant;
+            pu = (dv12 * dp02 - dv02 * dp12) * inv_det;
+            pv = (-du12 * dp02 + du02 * dp12) * inv_det;
+        }
+        if degenerate_uv || pu.cross(pv).squared_length() == 0.0_f32 {
+            let mut ng = (vertex2 - vertex0).cross(vertex1 - vertex0);
+            if ng.squared_length() == 0.0_f32 {
+                // TODO: If pre-calculating, make this a build error.
+                pu = Vector3::new_empty();
+                pv = Vector3::new_empty();
+            } else {
+                ng = ng.normalized();
+                if ng.x.abs() > ng.y.abs() {
+                    pu = Vector3::new(-ng.z, 0.0_f32, ng.x) / (ng.x * ng.x + ng.z * ng.z).sqrt();
+                } else {
+                    pu = Vector3::new(0.0_f32, ng.z, -ng.y) / (ng.y * ng.y + ng.z * ng.z).sqrt();
+                }
+                pv = ng.cross(pu);
+            }
+        }
+        if determinant < 0.0_f32 {
+            pu = -pu; // Flip if ray comes from back
+        }
+
         HitProperties {
             hit_point: r.point_at(t_hit),
             normal: normal,
             u: u,
             v: v,
+            pu: pu,
+            pv: pv,
         }
     }
 

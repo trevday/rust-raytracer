@@ -28,7 +28,7 @@ impl Camera {
         aperture: f32,
         focus_dist: f32,
     ) -> Camera {
-        let theta = vertical_fov * (std::f32::consts::PI / 180.0_f32);
+        let theta = vertical_fov.to_radians();
         let half_height = (theta / 2.0_f32).tan();
         let half_width = aspect * half_height;
 

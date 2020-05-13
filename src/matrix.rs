@@ -1,4 +1,3 @@
-use crate::aggregate::AABB;
 use crate::point::Point3;
 use crate::ray::Ray;
 use crate::vector::Vector3;
@@ -41,25 +40,35 @@ impl Matrix4 {
     }
 
     pub fn new_rotation(rotate: &Vector3) -> Matrix4 {
+        let radians_rotation = Vector3::new(
+            rotate.x.to_radians(),
+            rotate.y.to_radians(),
+            rotate.z.to_radians(),
+        );
+
         let mut m = Matrix4::new_identity();
         // First row
-        m.data[0][0] = rotate.z.cos() * rotate.y.cos();
+        m.data[0][0] = radians_rotation.z.cos() * radians_rotation.y.cos();
         m.data[0][1] =
-            rotate.z.cos() * rotate.y.sin() * rotate.x.sin() - rotate.z.sin() * rotate.x.cos();
+            radians_rotation.z.cos() * radians_rotation.y.sin() * radians_rotation.x.sin()
+                - radians_rotation.z.sin() * radians_rotation.x.cos();
         m.data[0][2] =
-            rotate.z.cos() * rotate.y.sin() * rotate.x.cos() + rotate.z.sin() * rotate.x.sin();
+            radians_rotation.z.cos() * radians_rotation.y.sin() * radians_rotation.x.cos()
+                + radians_rotation.z.sin() * radians_rotation.x.sin();
 
         // Second row
-        m.data[1][0] = rotate.z.sin() * rotate.y.cos();
+        m.data[1][0] = radians_rotation.z.sin() * radians_rotation.y.cos();
         m.data[1][1] =
-            rotate.z.sin() * rotate.y.sin() * rotate.x.sin() + rotate.z.cos() * rotate.x.cos();
+            radians_rotation.z.sin() * radians_rotation.y.sin() * radians_rotation.x.sin()
+                + radians_rotation.z.cos() * radians_rotation.x.cos();
         m.data[1][2] =
-            rotate.z.sin() * rotate.y.sin() * rotate.x.cos() - rotate.z.cos() * rotate.x.sin();
+            radians_rotation.z.sin() * radians_rotation.y.sin() * radians_rotation.x.cos()
+                - radians_rotation.z.cos() * radians_rotation.x.sin();
 
         // Third row
-        m.data[2][0] = -rotate.y.sin();
-        m.data[2][1] = rotate.y.cos() * rotate.x.sin();
-        m.data[2][2] = rotate.y.cos() * rotate.x.cos();
+        m.data[2][0] = -radians_rotation.y.sin();
+        m.data[2][1] = radians_rotation.y.cos() * radians_rotation.x.sin();
+        m.data[2][2] = radians_rotation.y.cos() * radians_rotation.x.cos();
 
         m
     }
@@ -175,12 +184,5 @@ impl ops::Mul<&Ray> for &Matrix4 {
     type Output = Ray;
     fn mul(self, rhs: &Ray) -> Ray {
         Ray::new(self * rhs.origin, self * rhs.dir)
-    }
-}
-
-impl ops::Mul<&AABB> for &Matrix4 {
-    type Output = AABB;
-    fn mul(self, rhs: &AABB) -> AABB {
-        AABB::new(self * rhs.min, self * rhs.max)
     }
 }

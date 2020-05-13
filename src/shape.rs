@@ -120,11 +120,15 @@ impl Shape for Sphere {
     }
 
     fn get_bounding_box(&self) -> AABB {
-        &self.local_to_world
-            * &AABB::new(
-                Point3::origin() - Vector3::new(self.radius, self.radius, self.radius),
-                Point3::origin() + Vector3::new(self.radius, self.radius, self.radius),
-            )
+        let local_min_in_world = &self.local_to_world * Point3::origin()
+            - Vector3::new(self.radius, self.radius, self.radius);
+        let local_max_in_world = &self.local_to_world * Point3::origin()
+            + Vector3::new(self.radius, self.radius, self.radius);
+
+        AABB::new(
+            Point3::min(local_min_in_world, local_max_in_world),
+            Point3::max(local_min_in_world, local_max_in_world),
+        )
     }
 }
 

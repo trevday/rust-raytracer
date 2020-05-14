@@ -1,0 +1,267 @@
+{
+	"Logistics": {
+		"resolution_x": 500,
+		"resolution_y": 500,
+		"samples": 30
+	},
+	"Camera": {
+		"position": [
+			278,
+			273,
+			-800
+		],
+		"look_at": [
+			278,
+			273,
+			0
+		],
+		"up": [
+			0,
+			1,
+			0
+		],
+		"fov": 40,
+		"aspect_ratio": 1,
+		"aperture": 0,
+		"focus_distance": 10
+	},
+	"Textures": {
+		"Red": {
+			"type": "Constant",
+			"color": [
+				0.65,
+				0.05,
+				0.05
+			]
+		},
+		"White": {
+			"type": "Constant",
+			"color": [
+				0.73,
+				0.73,
+				0.73
+			]
+		},
+		"Green": {
+			"type": "Constant",
+			"color": [
+				0.12,
+				0.45,
+				0.15
+			]
+		},
+		"Bright": {
+			"type": "Constant",
+			"color": [
+				15.0,
+				15.0,
+				15.0
+			]
+		}
+	},
+	"Materials": {
+		"Red": {
+			"type": "Lambert",
+			"albedo": "Red"
+		},
+		"White": {
+			"type": "Lambert",
+			"albedo": "White"
+		},
+		"Green": {
+			"type": "Lambert",
+			"albedo": "Green"
+		},
+		"Light": {
+			"type": "DiffuseLight",
+			"emission": "Bright"
+		}
+	},
+	"Aggregate": "BVH",
+	"Shapes": [
+		{
+			"type": "Mesh",
+			"file_path": "Square.obj",
+			"enable_backface_culling": true,
+			"material": "Green",
+			"transform": {
+				"translate": [
+					555,
+					277.5,
+					277.5
+				],
+				"rotate": [
+					0,
+					-90,
+					0
+				],
+				"scale": [
+					555,
+					555,
+					0
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Square.obj",
+			"enable_backface_culling": true,
+			"material": "Red",
+			"transform": {
+				"translate": [
+					0,
+					277.5,
+					277.5
+				],
+				"rotate": [
+					0,
+					90,
+					0
+				],
+				"scale": [
+					555,
+					555,
+					0
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Square.obj",
+			"enable_backface_culling": true,
+			"material": "White",
+			"transform": {
+				"translate": [
+					277.5,
+					277.5,
+					555
+				],
+				"rotate": [
+					0,
+					180,
+					0
+				],
+				"scale": [
+					555,
+					555,
+					0
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Square.obj",
+			"enable_backface_culling": true,
+			"material": "White",
+			"transform": {
+				"translate": [
+					277.5,
+					555,
+					277.5
+				],
+				"rotate": [
+					90,
+					0,
+					0
+				],
+				"scale": [
+					555,
+					555,
+					0
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Square.obj",
+			"enable_backface_culling": true,
+			"material": "White",
+			"transform": {
+				"translate": [
+					277.5,
+					0,
+					277.5
+				],
+				"rotate": [
+					-90,
+					0,
+					0
+				],
+				"scale": [
+					555,
+					555,
+					0
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Square.obj",
+			"enable_backface_culling": true,
+			"material": "Light",
+			"transform": {
+				"translate": [
+					277.5,
+					554,
+					280
+				],
+				"rotate": [
+					90,
+					0,
+					0
+				],
+				"scale": [
+					130,
+					105,
+					0
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Cube.obj",
+			"enable_backface_culling": true,
+			"material": "White",
+			"transform": {
+				"translate": [
+					347.5,
+					165,
+					377.5
+				],
+				"rotate": [
+					0,
+					15,
+					0
+				],
+				"scale": [
+					165,
+					330,
+					165
+				]
+			}
+		},
+		{
+			"type": "Mesh",
+			"file_path": "Cube.obj",
+			"enable_backface_culling": true,
+			"material": "White",
+			"transform": {
+				"translate": [
+					212.5,
+					82.5,
+					147.5
+				],
+				"rotate": [
+					0,
+					-18,
+					0
+				],
+				"scale": [
+					165,
+					165,
+					165
+				]
+			}
+		}
+	]
+}

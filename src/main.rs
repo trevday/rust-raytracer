@@ -87,7 +87,7 @@ fn main() {
                         &r,
                         &(*scene_spec.shape_aggregate),
                         &mut aggregate_workspace,
-                        &background,
+                        &black_background,
                         0,
                     );
             }
@@ -110,10 +110,15 @@ fn main() {
     }
 }
 
+/*
 fn background(r: &Ray) -> RGB {
     // Sky blend
     let dir_normal = r.dir.normalized();
     let t = 0.5_f32 * (dir_normal.y + 1.0_f32);
 
     RGB::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t) + RGB::new(0.5_f32, 0.7_f32, 1.0_f32) * t
+}
+*/
+fn black_background(_: &Ray) -> RGB {
+    RGB::black()
 }

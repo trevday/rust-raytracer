@@ -20,6 +20,7 @@ pub struct Scene {
     pub logistics: Logistics,
     pub camera: Camera,
     pub shape_aggregate: Box<dyn Aggregate>,
+    pub important_samples: Vec<Rc<dyn Shape>>,
 }
 
 #[derive(Deserialize)]
@@ -118,9 +119,17 @@ pub fn deserialize(
         }
     };
     // Iterate through the shapes and deserialize correctly
-    let mut shapes: Vec<Box<dyn Shape>> = Vec::with_capacity(shapes_value.len());
+    let mut shapes: Vec<Rc<dyn Shape>> = Vec::with_capacity(shapes_value.len());
     for shape in shapes_value {
         deserialize_shape(shape, spec_dir, &materials, &mut shapes)?;
+    }
+
+    // Pull out any important shapes for sampling in a separate list
+    let mut important_samples = Vec::new();
+    for shape in &shapes {
+        if shape.get_material().is_important() {
+            important_samples.push(Rc::clone(shape));
+        }
     }
 
     // Break the shapes down into the aggregate structure
@@ -138,6 +147,7 @@ pub fn deserialize(
         logistics: logistics,
         camera: camera,
         shape_aggregate: shape_aggregate,
+        important_samples: important_samples,
     })
 }
 
@@ -371,7 +381,7 @@ fn deserialize_shape(
     json: &serde_json::Value,
     spec_dir: &path::Path,
     materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Box<dyn Shape>>,
+    shapes: &mut Vec<Rc<dyn Shape>>,
 ) -> Result<(), DeserializeError> {
     if !json.is_object() {
         return Err(DeserializeError::LocalError(format!(
@@ -410,7 +420,7 @@ struct SphereDescription {
 fn deserialize_sphere(
     json: &serde_json::Value,
     materials: &HashMap<String, Rc<dyn Material>>,
-) -> Result<Box<shape::Sphere>, DeserializeError> {
+) -> Result<Rc<shape::Sphere>, DeserializeError> {
     let sphere_desc: SphereDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !materials.contains_key(&sphere_desc.material) {
         return Err(DeserializeError::LocalError(format!(
@@ -418,7 +428,7 @@ fn deserialize_sphere(
             sphere_desc.material
         )));
     }
-    return Ok(Box::new(
+    return Ok(Rc::new(
         match shape::Sphere::new(
             &sphere_desc.transform.create_matrix(),
             sphere_desc.radius,
@@ -445,7 +455,7 @@ fn deserialize_mesh(
     json: &serde_json::Value,
     spec_dir: &path::Path,
     materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Box<dyn Shape>>,
+    shapes: &mut Vec<Rc<dyn Shape>>,
 ) -> Result<(), DeserializeError> {
     let mesh_desc: MeshDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !materials.contains_key(&mesh_desc.material) {
@@ -489,7 +499,7 @@ fn deserialize_mesh(
                         let (v_index1, t_index1, _) = v1;
                         let (v_index2, t_index2, _) = v2;
 
-                        shapes.push(Box::new(
+                        shapes.push(Rc::new(
                             match shape::Triangle::new(
                                 Rc::clone(&t_mesh),
                                 v_index0,
@@ -535,7 +545,7 @@ fn deserialize_constant_medium(
     json: &serde_json::Value,
     spec_dir: &path::Path,
     materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Box<dyn Shape>>,
+    shapes: &mut Vec<Rc<dyn Shape>>,
 ) -> Result<(), DeserializeError> {
     let med_desc: ConstantMediumDescription =
         serde_json::from_value(serde_json::Value::clone(json))?;
@@ -554,7 +564,7 @@ fn deserialize_constant_medium(
         )));
     }
 
-    shapes.push(Box::new(volume::ConstantMedium::new(
+    shapes.push(Rc::new(volume::ConstantMedium::new(
         shapes_temp.remove(0_usize),
         med_desc.density,
         Rc::clone(&materials[&med_desc.phase_func]),
@@ -565,7 +575,7 @@ fn deserialize_constant_medium(
 // Aggregates
 fn create_aggregate(
     aggregate_type: &str,
-    shapes: Vec<Box<dyn Shape>>,
+    shapes: Vec<Rc<dyn Shape>>,
 ) -> Result<Box<dyn Aggregate>, DeserializeError> {
     match aggregate_type {
         "List" => return Ok(Box::new(shapes)),

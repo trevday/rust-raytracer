@@ -1,4 +1,6 @@
 use crate::color::RGB;
+use crate::pdf;
+use crate::pdf::PDF;
 use crate::ray::Ray;
 use crate::shape::HitProperties;
 use crate::texture::Texture;
@@ -31,16 +33,31 @@ fn schlick(cosine: f32, index: f32) -> f32 {
     r0 + (1.0_f32 - r0) * (1.0_f32 - cosine).powi(5)
 }
 
+pub enum Reflectance {
+    Specular(Ray),
+    PDF(Rc<dyn PDF>),
+}
+pub struct ScatterProperties {
+    pub reflectance: Reflectance,
+    pub attenuation: RGB,
+}
+
 pub trait Material {
     // Because of the Rust compiler's optimizations, including use of inlining, implicit pointer
     // arguments, and return value optimization, I think it is ok for functions like this to use
     // multiple return values, some of which are structs, instead of "out" parameters.
     // See: https://stackoverflow.com/questions/35033806/how-does-rust-deal-with-structs-as-function-parameters-and-return-values
-    fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)>;
+    fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties>;
 
     fn emit(&self, _in_ray: &Ray, _hit_props: &HitProperties) -> Option<RGB> {
         None
     }
+
+    // Reflects whether a Material has some importance for shading in a scene,
+    // usually indicates that a Material emits light or that it will reflect
+    // other sources of light. If true, more rays will be sent in this Material's
+    // direction during tracing.
+    fn is_important(&self) -> bool;
 }
 
 pub struct Lambert {
@@ -60,7 +77,7 @@ impl Lambert {
 
 const BUMP_DELTA: f32 = 0.005_f32; // TODO: Make bump delta dynamic
 impl Material for Lambert {
-    fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)> {
+    fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
         // Apply bump map if present
         // https://www.microsoft.com/en-us/research/wp-content/uploads/1978/01/p286-blinn.pdf
         let bump_modified_normal = match &self.bump_map {
@@ -92,12 +109,17 @@ impl Material for Lambert {
             }
         };
 
-        let target = hit_props.hit_point + bump_modified_normal + utils::unit_sphere_random();
-        Some((
-            self.albedo
+        Some(ScatterProperties {
+            // TODO: Avoid an allocation here?
+            reflectance: Reflectance::PDF(Rc::new(pdf::Cosine::new(&bump_modified_normal))),
+            attenuation: self
+                .albedo
                 .value(hit_props.u, hit_props.v, &hit_props.hit_point),
-            Ray::new(hit_props.hit_point, target - hit_props.hit_point),
-        ))
+        })
+    }
+
+    fn is_important(&self) -> bool {
+        false
     }
 }
 
@@ -124,19 +146,20 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)> {
+    fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
         let reflected = reflect(in_ray.dir.normalized(), hit_props.normal);
         let out_ray_dir = reflected + self.roughness * utils::unit_sphere_random();
 
-        if out_ray_dir.dot(hit_props.normal) > 0.0_f32 {
-            Some((
-                self.albedo
-                    .value(hit_props.u, hit_props.v, &hit_props.hit_point),
-                Ray::new(hit_props.hit_point, out_ray_dir),
-            ))
-        } else {
-            None
-        }
+        Some(ScatterProperties {
+            reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, out_ray_dir)),
+            attenuation: self
+                .albedo
+                .value(hit_props.u, hit_props.v, &hit_props.hit_point),
+        })
+    }
+
+    fn is_important(&self) -> bool {
+        true
     }
 }
 
@@ -146,7 +169,7 @@ pub struct Dielectric {
 }
 
 impl Material for Dielectric {
-    fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)> {
+    fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
         let normal_dot = in_ray.dir.dot(hit_props.normal);
 
         let (outward_normal, index, cosine) = if normal_dot > 0.0_f32 {
@@ -181,10 +204,14 @@ impl Material for Dielectric {
             None => Ray::new(hit_props.hit_point, reflect(in_ray.dir, hit_props.normal)),
         };
 
-        Some((
-            RGB::new(1.0_f32, 1.0_f32, 1.0_f32), // Attenuation is perfect
-            out_ray,
-        ))
+        Some(ScatterProperties {
+            reflectance: Reflectance::Specular(out_ray),
+            attenuation: RGB::new(1.0_f32, 1.0_f32, 1.0_f32), // Attenuation is perfect
+        })
+    }
+
+    fn is_important(&self) -> bool {
+        true
     }
 }
 
@@ -199,7 +226,7 @@ impl DiffuseLight {
 }
 
 impl Material for DiffuseLight {
-    fn scatter(&self, _in_ray: &Ray, _hit_props: &HitProperties) -> Option<(RGB, Ray)> {
+    fn scatter(&self, _in_ray: &Ray, _hit_props: &HitProperties) -> Option<ScatterProperties> {
         None
     }
 
@@ -208,5 +235,9 @@ impl Material for DiffuseLight {
             self.emission
                 .value(hit_props.u, hit_props.v, &hit_props.hit_point),
         )
+    }
+
+    fn is_important(&self) -> bool {
+        true
     }
 }

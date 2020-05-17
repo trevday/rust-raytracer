@@ -4,6 +4,7 @@ mod camera;
 mod color;
 mod material;
 mod matrix;
+mod pdf;
 mod point;
 mod ray;
 mod resources;
@@ -86,6 +87,7 @@ fn main() {
                     + aggregate::trace(
                         &r,
                         &(*scene_spec.shape_aggregate),
+                        &scene_spec.important_samples,
                         &mut aggregate_workspace,
                         &black_background,
                         0,

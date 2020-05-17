@@ -1,4 +1,6 @@
 use crate::color::RGB;
+use crate::material::Reflectance;
+use crate::pdf;
 use crate::point::Point3;
 use crate::ray::Ray;
 use crate::shape::Shape;
@@ -7,12 +9,14 @@ use crate::vector::Axis;
 
 use std::cmp;
 use std::mem;
+use std::rc::Rc;
 
 const MAX_DEPTH: i32 = 50;
 
 pub fn trace(
     r: &Ray,
     shape_aggregate: &dyn Aggregate,
+    important_samples: &Vec<Rc<dyn Shape>>,
     workspace: &mut Workspace,
     bg_func: &dyn Fn(&Ray) -> RGB,
     depth: i32,
@@ -36,16 +40,61 @@ pub fn trace(
 
                 match s.get_material().scatter(r, &hit_props) {
                     // Some if we scattered
-                    Some((attenuation, scattered_ray)) => {
-                        // Recursive case
-                        return attenuation
-                            * trace(
-                                &scattered_ray,
-                                shape_aggregate,
-                                workspace,
-                                bg_func,
-                                depth + 1,
-                            );
+                    Some(scattered_props) => {
+                        match scattered_props.reflectance {
+                            // Specular rays get normal recursive case
+                            Reflectance::Specular(r) => {
+                                return scattered_props.attenuation
+                                    * trace(
+                                        &r,
+                                        shape_aggregate,
+                                        important_samples,
+                                        workspace,
+                                        bg_func,
+                                        depth + 1,
+                                    )
+                            }
+                            // Otherwise use importance sampling
+                            Reflectance::PDF(hit_pdf) => {
+                                // TODO: Avoid allocating all of this here and instead pre-cache it. This is
+                                // definitely an avoidable performance hit, but doing it for now to reduce
+                                // complexity of this change.
+                                let pdf_mixture = if !important_samples.is_empty() {
+                                    let mut shape_pdfs: Vec<Rc<dyn pdf::PDF>> = Vec::new();
+                                    for sample in important_samples {
+                                        shape_pdfs.push(Rc::new(pdf::Shape::new(
+                                            sample,
+                                            &hit_props.hit_point,
+                                        )));
+                                    }
+                                    let shapes_mix =
+                                        Rc::new(pdf::Mixture::new(shape_pdfs).unwrap());
+
+                                    Rc::new(
+                                        pdf::Mixture::new(vec![Rc::clone(&hit_pdf), shapes_mix])
+                                            .unwrap(),
+                                    )
+                                } else {
+                                    Rc::clone(&hit_pdf)
+                                };
+
+                                let scattered =
+                                    Ray::new(hit_props.hit_point, pdf_mixture.generate());
+                                let pdf_val = pdf_mixture.value(&scattered.dir);
+
+                                return scattered_props.attenuation
+                                    * hit_pdf.value(&scattered.dir)
+                                    * trace(
+                                        &scattered,
+                                        shape_aggregate,
+                                        important_samples,
+                                        workspace,
+                                        bg_func,
+                                        depth + 1,
+                                    )
+                                    / pdf_val;
+                            }
+                        }
                     }
                     None => {
                         return RGB::black();
@@ -86,18 +135,16 @@ pub trait Aggregate {
 }
 
 // Small convenience function
-const T_MIN: f32 = 0.001_f32;
-const T_MAX: f32 = std::f32::MAX;
 fn hit<'a>(
     aggregate: &'a dyn Aggregate,
     workspace: &mut Workspace,
     r: &Ray,
 ) -> Option<(&'a dyn Shape, f32)> {
-    aggregate.hit(r, T_MIN, T_MAX, workspace)
+    aggregate.hit(r, utils::T_MIN, utils::T_MAX, workspace)
 }
 
 // Simple list aggregate
-type List = Vec<Box<dyn Shape>>;
+type List = Vec<Rc<dyn Shape>>;
 
 impl Aggregate for List {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32, _: &mut Workspace) -> Option<(&dyn Shape, f32)> {
@@ -142,13 +189,13 @@ struct BVHNode {
 }
 
 // Constructs a new BVH using the Surface Area Heuristic (SAH).
-pub fn new_bvh(shapes: Vec<Box<dyn Shape>>) -> Box<dyn Aggregate> {
+pub fn new_bvh(shapes: Vec<Rc<dyn Shape>>) -> Box<dyn Aggregate> {
     let mut bvh = Box::new(Vec::new());
     new_bvh_helper(&mut (*bvh), shapes);
     return bvh;
 }
 // Helper for recursive case of BVH construction.
-fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Box<dyn Shape>>) {
+fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Rc<dyn Shape>>) {
     // Calculate total bounds for this iteration
     let mut total_bounds = AABB::new_empty();
     for shape in &shapes {

@@ -23,6 +23,9 @@ pub trait Shape {
     fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties;
     fn get_material(&self) -> &Rc<dyn Material>;
     fn get_bounding_box(&self) -> AABB;
+
+    fn pdf(&self, r: &Ray) -> f32;
+    fn random_dir_towards(&self, from_origin: &Point3) -> Vector3;
 }
 
 pub struct Sphere {
@@ -129,6 +132,28 @@ impl Shape for Sphere {
             Point3::min(local_min_in_world, local_max_in_world),
             Point3::max(local_min_in_world, local_max_in_world),
         )
+    }
+
+    fn pdf(&self, r: &Ray) -> f32 {
+        match self.hit(r, utils::T_MIN, utils::T_MAX) {
+            Some(_) => {}
+            None => return 0.0_f32,
+        };
+
+        let local_ray = &self.world_to_local * r;
+        let cos_theta_max = (1.0_f32
+            - self.radius * self.radius / (Point3::origin() - local_ray.origin).squared_length())
+        .sqrt();
+        let solid_angle = 2.0_f32 * f32::consts::PI * (1.0_f32 - cos_theta_max);
+        return 1.0_f32 / solid_angle;
+    }
+
+    fn random_dir_towards(&self, from_origin: &Point3) -> Vector3 {
+        let local_point = &self.world_to_local * (*from_origin);
+        let dir = Point3::origin() - local_point;
+        return &self.local_to_world
+            * utils::OrthonormalBasis::new(&dir)
+                .local(&utils::random_to_sphere(self.radius, dir.squared_length()));
     }
 }
 
@@ -379,5 +404,37 @@ impl Shape for Triangle {
             Point3::min(vertex0, Point3::min(vertex1, vertex2)),
             Point3::max(vertex0, Point3::max(vertex1, vertex2)),
         )
+    }
+
+    fn pdf(&self, r: &Ray) -> f32 {
+        let vertex0 = self.triangle_mesh.vertices[self.v0];
+        let vertex1 = self.triangle_mesh.vertices[self.v1];
+        let vertex2 = self.triangle_mesh.vertices[self.v2];
+
+        let t_hit = match self.hit(r, utils::T_MIN, utils::T_MAX) {
+            Some(t) => t,
+            None => return 0.0_f32,
+        };
+        let hit_props = self.get_hit_properties(r, t_hit);
+
+        // TODO: Make area a function on Shape trait, which allows a single implementation
+        // of PDF that leverages area for most Shapes
+        let area = 0.5_f32 * (vertex1 - vertex0).cross(vertex2 - vertex0).length();
+        let dist_squared = t_hit * t_hit * r.dir.squared_length();
+        let cosine = (r.dir.dot(hit_props.normal) / r.dir.length()).abs();
+        return dist_squared / (cosine * area);
+    }
+
+    fn random_dir_towards(&self, from_origin: &Point3) -> Vector3 {
+        let vertex0 = self.triangle_mesh.vertices[self.v0];
+        let vertex1 = self.triangle_mesh.vertices[self.v1];
+        let vertex2 = self.triangle_mesh.vertices[self.v2];
+
+        let r1 = rand::random::<f32>();
+        let r2 = rand::random::<f32>();
+        let random_point = vertex0 * (1.0_f32 - r1.sqrt())
+            + vertex1 * (r1.sqrt() * (1.0_f32 - r2))
+            + vertex2 * (r2 * r1.sqrt());
+        return random_point - *from_origin;
     }
 }

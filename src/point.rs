@@ -62,6 +62,17 @@ impl ops::Add<Vector3> for Point3 {
     }
 }
 
+impl ops::Add for Point3 {
+    type Output = Point3;
+    fn add(self, rhs: Point3) -> Point3 {
+        Point3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
 impl ops::Sub for Point3 {
     type Output = Vector3;
     fn sub(self, rhs: Point3) -> Vector3 {

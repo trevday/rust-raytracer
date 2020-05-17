@@ -1,6 +1,7 @@
 use crate::aggregate::AABB;
-use crate::color::RGB;
 use crate::material::Material;
+use crate::material::Reflectance;
+use crate::material::ScatterProperties;
 use crate::ray::Ray;
 use crate::shape::HitProperties;
 use crate::shape::Shape;
@@ -24,26 +25,33 @@ impl Isotropic {
 }
 
 impl Material for Isotropic {
-    fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<(RGB, Ray)> {
-        Some((
-            self.albedo
+    fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
+        Some(ScatterProperties {
+            // TODO: Technically not correct, this volume is not specular, but for now
+            // I just want it to not use a PDF
+            reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, unit_sphere_random())),
+            attenuation: self
+                .albedo
                 .value(hit_props.u, hit_props.v, &hit_props.hit_point),
-            Ray::new(hit_props.hit_point, unit_sphere_random()),
-        ))
+        })
+    }
+
+    fn is_important(&self) -> bool {
+        false
     }
 }
 
 // TODO: Separate Mediums from shapes, such that a shape can have a medium, but a medium
 // does not need to be a shape; add Medium trait
 pub struct ConstantMedium {
-    boundary: Box<dyn Shape>,
+    boundary: Rc<dyn Shape>,
     density: f32,
     phase_func: Rc<dyn Material>,
 }
 
 impl ConstantMedium {
     pub fn new(
-        boundary: Box<dyn Shape>,
+        boundary: Rc<dyn Shape>,
         density: f32,
         phase_func: Rc<dyn Material>,
     ) -> ConstantMedium {
@@ -101,5 +109,13 @@ impl Shape for ConstantMedium {
 
     fn get_bounding_box(&self) -> AABB {
         self.boundary.get_bounding_box()
+    }
+
+    fn pdf(&self, r: &Ray) -> f32 {
+        self.boundary.pdf(r)
+    }
+
+    fn random_dir_towards(&self, from_origin: &crate::point::Point3) -> crate::vector::Vector3 {
+        self.boundary.random_dir_towards(from_origin)
     }
 }

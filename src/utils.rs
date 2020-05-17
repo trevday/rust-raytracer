@@ -2,6 +2,10 @@ use crate::point::Point3;
 use crate::vector::Vector3;
 
 use rand;
+use std::f32;
+
+pub const T_MIN: f32 = 0.001_f32;
+pub const T_MAX: f32 = std::f32::MAX;
 
 pub fn random_unit_disk() -> Vector3 {
     let x = 2.0_f32 * rand::random::<f32>() - 1.0_f32;
@@ -15,6 +19,30 @@ pub fn unit_sphere_random() -> Vector3 {
     let sin_elevation = (1.0_f32 - y * y).sqrt();
     let x = sin_elevation * azimuth.cos();
     let z = sin_elevation * azimuth.sin();
+
+    Vector3::new(x, y, z)
+}
+
+pub fn random_cosine_direction() -> Vector3 {
+    let r1 = rand::random::<f32>();
+    let r2 = rand::random::<f32>();
+    let z = (1.0_f32 - r2).sqrt();
+
+    let phi = 2.0_f32 * f32::consts::PI * r1;
+    let x = phi.cos() * r2.sqrt();
+    let y = phi.sin() * r2.sqrt();
+
+    Vector3::new(x, y, z)
+}
+
+pub fn random_to_sphere(radius: f32, distance_squared: f32) -> Vector3 {
+    let r1 = rand::random::<f32>();
+    let r2 = rand::random::<f32>();
+    let z = 1.0_f32 + r2 * ((1.0_f32 - radius * radius / distance_squared).sqrt() - 1.0_f32);
+
+    let phi = 2.0_f32 * f32::consts::PI * r1;
+    let x = phi.cos() * (1.0_f32 - z * z).sqrt();
+    let y = phi.sin() * (1.0_f32 - z * z).sqrt();
 
     Vector3::new(x, y, z)
 }
@@ -141,4 +169,33 @@ pub fn turbulence(p: &Point3, depth: u32, omega: f32) -> f32 {
     }
 
     return sum.abs();
+}
+
+pub struct OrthonormalBasis {
+    axis: [Vector3; 3],
+}
+
+impl OrthonormalBasis {
+    pub fn new(v: &Vector3) -> OrthonormalBasis {
+        let mut o = OrthonormalBasis {
+            axis: [Vector3::new_empty(); 3],
+        };
+        o.axis[2] = *v;
+        let a = if v.x.abs() > 0.9_f32 {
+            Vector3::new(0.0_f32, 1.0_f32, 0.0_f32)
+        } else {
+            Vector3::new(1.0_f32, 0.0_f32, 0.0_f32)
+        };
+        o.axis[1] = v.cross(a).normalized();
+        o.axis[0] = v.cross(o.axis[1]);
+        return o;
+    }
+
+    pub fn local(&self, v: &Vector3) -> Vector3 {
+        (v.x * self.axis[0]) + (v.y * self.axis[1]) + (v.z * self.axis[2])
+    }
+
+    pub fn w(&self) -> Vector3 {
+        self.axis[2]
+    }
 }

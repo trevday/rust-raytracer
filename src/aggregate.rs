@@ -3,20 +3,21 @@ use crate::material::Reflectance;
 use crate::pdf;
 use crate::point::Point3;
 use crate::ray::Ray;
-use crate::shape::Shape;
+use crate::shape::SyncShape;
 use crate::utils;
 use crate::vector::Axis;
 
 use std::cmp;
 use std::mem;
 use std::rc::Rc;
+use std::sync::Arc;
 
 const MAX_DEPTH: i32 = 50;
 
 pub fn trace(
     r: &Ray,
-    shape_aggregate: &dyn Aggregate,
-    important_samples: &Vec<Rc<dyn Shape>>,
+    shape_aggregate: &SyncAggregate,
+    important_samples: &Vec<Arc<SyncShape>>,
     workspace: &mut Workspace,
     bg_func: &dyn Fn(&Ray) -> RGB,
     depth: i32,
@@ -127,29 +128,30 @@ pub trait Aggregate {
         t_min: f32,
         t_max: f32,
         workspaces: &mut Workspace,
-    ) -> Option<(&dyn Shape, f32)>;
+    ) -> Option<(&SyncShape, f32)>;
 
     fn get_workspace(&self) -> Workspace {
         return Workspace::Void;
     }
 }
+pub type SyncAggregate = dyn Aggregate + Send + Sync;
 
 // Small convenience function
 fn hit<'a>(
-    aggregate: &'a dyn Aggregate,
+    aggregate: &'a SyncAggregate,
     workspace: &mut Workspace,
     r: &Ray,
-) -> Option<(&'a dyn Shape, f32)> {
+) -> Option<(&'a SyncShape, f32)> {
     aggregate.hit(r, utils::T_MIN, utils::T_MAX, workspace)
 }
 
 // Simple list aggregate
-type List = Vec<Rc<dyn Shape>>;
+type List = Vec<Arc<SyncShape>>;
 
 impl Aggregate for List {
-    fn hit(&self, r: &Ray, t_min: f32, t_max: f32, _: &mut Workspace) -> Option<(&dyn Shape, f32)> {
+    fn hit(&self, r: &Ray, t_min: f32, t_max: f32, _: &mut Workspace) -> Option<(&SyncShape, f32)> {
         let mut modified_t_max = t_max;
-        let mut hit_shape: Option<&dyn Shape> = None;
+        let mut hit_shape: Option<&SyncShape> = None;
 
         for shape in self {
             match shape.hit(r, t_min, modified_t_max) {
@@ -189,13 +191,13 @@ struct BVHNode {
 }
 
 // Constructs a new BVH using the Surface Area Heuristic (SAH).
-pub fn new_bvh(shapes: Vec<Rc<dyn Shape>>) -> Box<dyn Aggregate> {
+pub fn new_bvh(shapes: Vec<Arc<SyncShape>>) -> Box<SyncAggregate> {
     let mut bvh = Box::new(Vec::new());
     new_bvh_helper(&mut (*bvh), shapes);
     return bvh;
 }
 // Helper for recursive case of BVH construction.
-fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Rc<dyn Shape>>) {
+fn new_bvh_helper(bvh: &mut BVH, mut shapes: Vec<Arc<SyncShape>>) {
     // Calculate total bounds for this iteration
     let mut total_bounds = AABB::new_empty();
     for shape in &shapes {
@@ -333,7 +335,7 @@ impl Aggregate for BVH {
         t_min: f32,
         t_max: f32,
         workspace: &mut Workspace,
-    ) -> Option<(&dyn Shape, f32)> {
+    ) -> Option<(&SyncShape, f32)> {
         // Grab the workspace as the pre-allocated vector
         // we expect it to be.
         let to_explore = match workspace {
@@ -346,7 +348,7 @@ impl Aggregate for BVH {
         }
 
         let mut modified_t_max = t_max;
-        let mut hit_shape: Option<&dyn Shape> = None;
+        let mut hit_shape: Option<&SyncShape> = None;
 
         let mut to_explore_count = 1;
         to_explore[0] = 0;

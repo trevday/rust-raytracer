@@ -4,7 +4,7 @@ use crate::utils::{noise, turbulence};
 
 use image::{DynamicImage, GenericImageView};
 use serde::Deserialize;
-use std::{convert::TryFrom, rc::Rc};
+use std::{convert::TryFrom, sync::Arc};
 
 pub trait Texture {
     fn value(&self, u: f32, v: f32, p: &Point3) -> RGB;
@@ -13,6 +13,7 @@ pub trait Texture {
         (bump.r + bump.g + bump.b) / 3.0_f32
     }
 }
+pub type SyncTexture = dyn Texture + Send + Sync;
 
 #[derive(Deserialize)]
 pub struct Constant {
@@ -41,11 +42,11 @@ impl Texture for Test {
 
 pub struct Checker {
     repeat: f32,
-    odd: Rc<dyn Texture>,
-    even: Rc<dyn Texture>,
+    odd: Arc<SyncTexture>,
+    even: Arc<SyncTexture>,
 }
 impl Checker {
-    pub fn new(repeat: f32, odd: Rc<dyn Texture>, even: Rc<dyn Texture>) -> Checker {
+    pub fn new(repeat: f32, odd: Arc<SyncTexture>, even: Arc<SyncTexture>) -> Checker {
         Checker {
             repeat: repeat,
             odd: odd,
@@ -66,10 +67,10 @@ impl Texture for Checker {
 }
 
 pub struct Image {
-    img: Rc<DynamicImage>,
+    img: Arc<DynamicImage>,
 }
 impl Image {
-    pub fn new(img: Rc<DynamicImage>) -> Image {
+    pub fn new(img: Arc<DynamicImage>) -> Image {
         Image { img: img }
     }
 }

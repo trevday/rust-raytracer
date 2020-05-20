@@ -3,13 +3,14 @@ use crate::pdf;
 use crate::pdf::PDF;
 use crate::ray::Ray;
 use crate::shape::HitProperties;
-use crate::texture::Texture;
+use crate::texture::SyncTexture;
 use crate::utils;
 use crate::vector::Vector3;
 
 use rand;
 use serde::Deserialize;
 use std::rc::Rc;
+use std::sync::Arc;
 
 fn reflect(v: Vector3, n: Vector3) -> Vector3 {
     v - 2.0_f32 * v.dot(n) * n
@@ -59,15 +60,16 @@ pub trait Material {
     // direction during tracing.
     fn is_important(&self) -> bool;
 }
+pub type SyncMaterial = dyn Material + Send + Sync;
 
 pub struct Lambert {
-    albedo: Rc<dyn Texture>,
+    albedo: Arc<SyncTexture>,
     // TODO: Expose to other materials, such as Metal
-    bump_map: Option<Rc<dyn Texture>>,
+    bump_map: Option<Arc<SyncTexture>>,
 }
 
 impl Lambert {
-    pub fn new(albedo: Rc<dyn Texture>, bump_map: Option<Rc<dyn Texture>>) -> Lambert {
+    pub fn new(albedo: Arc<SyncTexture>, bump_map: Option<Arc<SyncTexture>>) -> Lambert {
         Lambert {
             albedo: albedo,
             bump_map: bump_map,
@@ -124,12 +126,12 @@ impl Material for Lambert {
 }
 
 pub struct Metal {
-    albedo: Rc<dyn Texture>,
+    albedo: Arc<SyncTexture>,
     roughness: f32,
 }
 
 impl Metal {
-    pub fn new(albedo: Rc<dyn Texture>, roughness: f32) -> Metal {
+    pub fn new(albedo: Arc<SyncTexture>, roughness: f32) -> Metal {
         // Clamp roughness
         let mut r = roughness;
         if r < 0_f32 {
@@ -216,11 +218,11 @@ impl Material for Dielectric {
 }
 
 pub struct DiffuseLight {
-    emission: Rc<dyn Texture>,
+    emission: Arc<SyncTexture>,
 }
 
 impl DiffuseLight {
-    pub fn new(emission: Rc<dyn Texture>) -> DiffuseLight {
+    pub fn new(emission: Arc<SyncTexture>) -> DiffuseLight {
         DiffuseLight { emission: emission }
     }
 }

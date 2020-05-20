@@ -8,6 +8,7 @@ use crate::vector::Vector3;
 use rand::seq::SliceRandom;
 use std::f32;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait PDF {
     fn value(&self, dir: &Vector3) -> f32;
@@ -42,14 +43,14 @@ impl PDF for Cosine {
 }
 
 pub struct Shape {
-    shape: Rc<dyn shape::Shape>,
+    shape: Arc<shape::SyncShape>,
     origin: Point3,
 }
 
 impl Shape {
-    pub fn new(shape: &Rc<dyn shape::Shape>, origin: &Point3) -> Shape {
+    pub fn new(shape: &Arc<shape::SyncShape>, origin: &Point3) -> Shape {
         Shape {
-            shape: Rc::clone(shape),
+            shape: Arc::clone(shape),
             origin: *origin,
         }
     }

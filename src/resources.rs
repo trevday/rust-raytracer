@@ -1,9 +1,9 @@
 use image;
 use image::DynamicImage;
-use std::{collections::HashMap, path::Path, rc::Rc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 pub struct Resources {
-    loaded_images: HashMap<String, Rc<DynamicImage>>,
+    loaded_images: HashMap<String, Arc<DynamicImage>>,
 }
 
 impl Resources {
@@ -13,7 +13,7 @@ impl Resources {
         }
     }
 
-    pub fn load_image(&mut self, image_path: &Path) -> Result<Rc<DynamicImage>, String> {
+    pub fn load_image(&mut self, image_path: &Path) -> Result<Arc<DynamicImage>, String> {
         let absolute_path = match image_path.canonicalize() {
             Ok(p) => p,
             Err(e) => {
@@ -33,7 +33,7 @@ impl Resources {
         };
         if self.loaded_images.contains_key(path_str) {
             return match self.loaded_images.get(path_str) {
-                Some(v) => Ok(Rc::clone(v)),
+                Some(v) => Ok(Arc::clone(v)),
                 None => Err(String::from("Unexpected issue loading from image map.")),
             };
         }
@@ -43,9 +43,9 @@ impl Resources {
             Err(e) => return Err(format!("Could not open image: {}", e)),
         };
         self.loaded_images
-            .insert(String::from(path_str), Rc::new(image_buffer));
+            .insert(String::from(path_str), Arc::new(image_buffer));
         return match self.loaded_images.get(path_str) {
-            Some(v) => Ok(Rc::clone(v)),
+            Some(v) => Ok(Arc::clone(v)),
             None => Err(String::from("Unexpected issue loading from image map.")),
         };
     }

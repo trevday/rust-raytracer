@@ -1,26 +1,26 @@
-use crate::aggregate::{new_bvh, Aggregate};
+use crate::aggregate::{new_bvh, SyncAggregate};
 use crate::camera::Camera;
 use crate::material;
-use crate::material::Material;
+use crate::material::SyncMaterial;
 use crate::point::Point3;
 use crate::resources::Resources;
 use crate::shape;
-use crate::shape::Shape;
+use crate::shape::SyncShape;
 use crate::texture;
-use crate::texture::Texture;
+use crate::texture::SyncTexture;
 use crate::transform::Transform;
 use crate::volume;
 
 use serde::Deserialize;
 use serde_json;
-use std::{collections::HashMap, convert, fs, io, path, rc::Rc};
+use std::{collections::HashMap, convert, fs, io, path, sync::Arc};
 use wavefront_obj::obj;
 
 pub struct Scene {
     pub logistics: Logistics,
     pub camera: Camera,
-    pub shape_aggregate: Box<dyn Aggregate>,
-    pub important_samples: Vec<Rc<dyn Shape>>,
+    pub shape_aggregate: Box<SyncAggregate>,
+    pub important_samples: Vec<Arc<SyncShape>>,
 }
 
 #[derive(Deserialize)]
@@ -119,7 +119,7 @@ pub fn deserialize(
         }
     };
     // Iterate through the shapes and deserialize correctly
-    let mut shapes: Vec<Rc<dyn Shape>> = Vec::with_capacity(shapes_value.len());
+    let mut shapes: Vec<Arc<SyncShape>> = Vec::with_capacity(shapes_value.len());
     for shape in shapes_value {
         deserialize_shape(shape, spec_dir, &materials, &mut shapes)?;
     }
@@ -128,7 +128,7 @@ pub fn deserialize(
     let mut important_samples = Vec::new();
     for shape in &shapes {
         if shape.get_material().is_important() {
-            important_samples.push(Rc::clone(shape));
+            important_samples.push(Arc::clone(shape));
         }
     }
 
@@ -183,7 +183,7 @@ fn deserialize_texture(
     json: &serde_json::Value,
     spec_dir: &path::Path,
     res: &mut Resources,
-) -> Result<Rc<dyn Texture>, DeserializeError> {
+) -> Result<Arc<SyncTexture>, DeserializeError> {
     if !json.is_object() {
         return Err(DeserializeError::LocalError(format!(
             "Expected JSON object for value in Texture map: {}",
@@ -193,16 +193,16 @@ fn deserialize_texture(
 
     let tex_type = identify_type(json)?;
     match tex_type {
-        "Constant" => Ok(serde_json::from_value::<Rc<texture::Constant>>(
+        "Constant" => Ok(serde_json::from_value::<Arc<texture::Constant>>(
             serde_json::Value::clone(json),
         )?),
-        "Test" => Ok(Rc::new(texture::Test)),
+        "Test" => Ok(Arc::new(texture::Test)),
         "Checker" => deserialize_checker(json, spec_dir, res),
         "Image" => deserialize_image(json, spec_dir, res),
-        "Noise" => Ok(serde_json::from_value::<Rc<texture::Noise>>(
+        "Noise" => Ok(serde_json::from_value::<Arc<texture::Noise>>(
             serde_json::Value::clone(json),
         )?),
-        "Turbulence" => Ok(serde_json::from_value::<Rc<texture::Turbulence>>(
+        "Turbulence" => Ok(serde_json::from_value::<Arc<texture::Turbulence>>(
             serde_json::Value::clone(json),
         )?),
         _ => Err(DeserializeError::LocalError(format!(
@@ -224,9 +224,9 @@ fn deserialize_checker(
     json: &serde_json::Value,
     spec_dir: &path::Path,
     res: &mut Resources,
-) -> Result<Rc<dyn Texture>, DeserializeError> {
+) -> Result<Arc<SyncTexture>, DeserializeError> {
     let checker_desc: CheckerDescription = serde_json::from_value(serde_json::Value::clone(json))?;
-    return Ok(Rc::new(texture::Checker::new(
+    return Ok(Arc::new(texture::Checker::new(
         checker_desc.repeat,
         deserialize_texture(&checker_desc.odd, spec_dir, res)?,
         deserialize_texture(&checker_desc.even, spec_dir, res)?,
@@ -243,9 +243,9 @@ fn deserialize_image(
     json: &serde_json::Value,
     spec_dir: &path::Path,
     res: &mut Resources,
-) -> Result<Rc<dyn Texture>, DeserializeError> {
+) -> Result<Arc<SyncTexture>, DeserializeError> {
     let image_desc: ImageDescription = serde_json::from_value(serde_json::Value::clone(json))?;
-    return Ok(Rc::new(texture::Image::new(
+    return Ok(Arc::new(texture::Image::new(
         match res.load_image(&spec_dir.join(image_desc.image_path)) {
             Ok(i) => i,
             Err(e) => return Err(DeserializeError::LocalError(e)),
@@ -255,8 +255,8 @@ fn deserialize_image(
 
 fn deserialize_material(
     json: &serde_json::Value,
-    textures: &HashMap<String, Rc<dyn Texture>>,
-) -> Result<Rc<dyn Material>, DeserializeError> {
+    textures: &HashMap<String, Arc<SyncTexture>>,
+) -> Result<Arc<SyncMaterial>, DeserializeError> {
     if !json.is_object() {
         return Err(DeserializeError::LocalError(format!(
             "Expected JSON object for value in Materials map: {}",
@@ -268,7 +268,7 @@ fn deserialize_material(
     match material_type {
         "Lambert" => deserialize_lambert(json, textures),
         "Metal" => deserialize_metal(json, textures),
-        "Dielectric" => Ok(serde_json::from_value::<Rc<material::Dielectric>>(
+        "Dielectric" => Ok(serde_json::from_value::<Arc<material::Dielectric>>(
             serde_json::Value::clone(json),
         )?),
         "DiffuseLight" => deserialize_diffuse_light(json, textures),
@@ -289,8 +289,8 @@ struct LambertDescription {
 
 fn deserialize_lambert(
     json: &serde_json::Value,
-    textures: &HashMap<String, Rc<dyn Texture>>,
-) -> Result<Rc<dyn Material>, DeserializeError> {
+    textures: &HashMap<String, Arc<SyncTexture>>,
+) -> Result<Arc<SyncMaterial>, DeserializeError> {
     let lambert_desc: LambertDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !textures.contains_key(&lambert_desc.albedo) {
         return Err(DeserializeError::LocalError(format!(
@@ -300,10 +300,10 @@ fn deserialize_lambert(
     }
     let bump_map = match &lambert_desc.bump_map {
         None => None,
-        Some(b) => Some(Rc::clone(&textures[b])),
+        Some(b) => Some(Arc::clone(&textures[b])),
     };
-    return Ok(Rc::new(material::Lambert::new(
-        Rc::clone(&textures[&lambert_desc.albedo]),
+    return Ok(Arc::new(material::Lambert::new(
+        Arc::clone(&textures[&lambert_desc.albedo]),
         bump_map,
     )));
 }
@@ -317,8 +317,8 @@ struct MetalDescription {
 
 fn deserialize_metal(
     json: &serde_json::Value,
-    textures: &HashMap<String, Rc<dyn Texture>>,
-) -> Result<Rc<dyn Material>, DeserializeError> {
+    textures: &HashMap<String, Arc<SyncTexture>>,
+) -> Result<Arc<SyncMaterial>, DeserializeError> {
     let metal_desc: MetalDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !textures.contains_key(&metal_desc.albedo) {
         return Err(DeserializeError::LocalError(format!(
@@ -326,8 +326,8 @@ fn deserialize_metal(
             metal_desc.albedo
         )));
     }
-    return Ok(Rc::new(material::Metal::new(
-        Rc::clone(&textures[&metal_desc.albedo]),
+    return Ok(Arc::new(material::Metal::new(
+        Arc::clone(&textures[&metal_desc.albedo]),
         metal_desc.roughness,
     )));
 }
@@ -340,8 +340,8 @@ struct DiffuseLightDescription {
 
 fn deserialize_diffuse_light(
     json: &serde_json::Value,
-    textures: &HashMap<String, Rc<dyn Texture>>,
-) -> Result<Rc<dyn Material>, DeserializeError> {
+    textures: &HashMap<String, Arc<SyncTexture>>,
+) -> Result<Arc<SyncMaterial>, DeserializeError> {
     let diffuse_desc: DiffuseLightDescription =
         serde_json::from_value(serde_json::Value::clone(json))?;
     if !textures.contains_key(&diffuse_desc.emission) {
@@ -350,7 +350,7 @@ fn deserialize_diffuse_light(
             diffuse_desc.emission
         )));
     }
-    return Ok(Rc::new(material::DiffuseLight::new(Rc::clone(
+    return Ok(Arc::new(material::DiffuseLight::new(Arc::clone(
         &textures[&diffuse_desc.emission],
     ))));
 }
@@ -363,8 +363,8 @@ struct IsotropicDescription {
 
 fn deserialize_isotropic(
     json: &serde_json::Value,
-    textures: &HashMap<String, Rc<dyn Texture>>,
-) -> Result<Rc<dyn Material>, DeserializeError> {
+    textures: &HashMap<String, Arc<SyncTexture>>,
+) -> Result<Arc<SyncMaterial>, DeserializeError> {
     let iso_desc: IsotropicDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !textures.contains_key(&iso_desc.albedo) {
         return Err(DeserializeError::LocalError(format!(
@@ -372,7 +372,7 @@ fn deserialize_isotropic(
             iso_desc.albedo
         )));
     }
-    return Ok(Rc::new(volume::Isotropic::new(Rc::clone(
+    return Ok(Arc::new(volume::Isotropic::new(Arc::clone(
         &textures[&iso_desc.albedo],
     ))));
 }
@@ -380,8 +380,8 @@ fn deserialize_isotropic(
 fn deserialize_shape(
     json: &serde_json::Value,
     spec_dir: &path::Path,
-    materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Rc<dyn Shape>>,
+    materials: &HashMap<String, Arc<SyncMaterial>>,
+    shapes: &mut Vec<Arc<SyncShape>>,
 ) -> Result<(), DeserializeError> {
     if !json.is_object() {
         return Err(DeserializeError::LocalError(format!(
@@ -419,8 +419,8 @@ struct SphereDescription {
 
 fn deserialize_sphere(
     json: &serde_json::Value,
-    materials: &HashMap<String, Rc<dyn Material>>,
-) -> Result<Rc<shape::Sphere>, DeserializeError> {
+    materials: &HashMap<String, Arc<SyncMaterial>>,
+) -> Result<Arc<shape::Sphere>, DeserializeError> {
     let sphere_desc: SphereDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !materials.contains_key(&sphere_desc.material) {
         return Err(DeserializeError::LocalError(format!(
@@ -428,11 +428,11 @@ fn deserialize_sphere(
             sphere_desc.material
         )));
     }
-    return Ok(Rc::new(
+    return Ok(Arc::new(
         match shape::Sphere::new(
             &sphere_desc.transform.create_matrix(),
             sphere_desc.radius,
-            Rc::clone(&materials[&sphere_desc.material]),
+            Arc::clone(&materials[&sphere_desc.material]),
         ) {
             Ok(s) => s,
             Err(e) => return Err(DeserializeError::LocalError(String::from(e))),
@@ -454,8 +454,8 @@ struct MeshDescription {
 fn deserialize_mesh(
     json: &serde_json::Value,
     spec_dir: &path::Path,
-    materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Rc<dyn Shape>>,
+    materials: &HashMap<String, Arc<SyncMaterial>>,
+    shapes: &mut Vec<Arc<SyncShape>>,
 ) -> Result<(), DeserializeError> {
     let mesh_desc: MeshDescription = serde_json::from_value(serde_json::Value::clone(json))?;
     if !materials.contains_key(&mesh_desc.material) {
@@ -483,11 +483,11 @@ fn deserialize_mesh(
             converted_tex_coords.push((tex.u as f32, tex.v as f32));
         }
         // Create shared mesh, which all Triangles will reference.
-        let t_mesh = Rc::new(shape::TriangleMesh::new(
+        let t_mesh = Arc::new(shape::TriangleMesh::new(
             converted_vertices,
             converted_tex_coords,
             mesh_desc.enable_backface_culling,
-            Rc::clone(&materials[&mesh_desc.material]),
+            Arc::clone(&materials[&mesh_desc.material]),
         ));
 
         // Geometry -> Shape -> Primitive -> Triangle -> Vertices
@@ -499,9 +499,9 @@ fn deserialize_mesh(
                         let (v_index1, t_index1, _) = v1;
                         let (v_index2, t_index2, _) = v2;
 
-                        shapes.push(Rc::new(
+                        shapes.push(Arc::new(
                             match shape::Triangle::new(
-                                Rc::clone(&t_mesh),
+                                Arc::clone(&t_mesh),
                                 v_index0,
                                 v_index1,
                                 v_index2,
@@ -544,8 +544,8 @@ struct ConstantMediumDescription {
 fn deserialize_constant_medium(
     json: &serde_json::Value,
     spec_dir: &path::Path,
-    materials: &HashMap<String, Rc<dyn Material>>,
-    shapes: &mut Vec<Rc<dyn Shape>>,
+    materials: &HashMap<String, Arc<SyncMaterial>>,
+    shapes: &mut Vec<Arc<SyncShape>>,
 ) -> Result<(), DeserializeError> {
     let med_desc: ConstantMediumDescription =
         serde_json::from_value(serde_json::Value::clone(json))?;
@@ -564,10 +564,10 @@ fn deserialize_constant_medium(
         )));
     }
 
-    shapes.push(Rc::new(volume::ConstantMedium::new(
+    shapes.push(Arc::new(volume::ConstantMedium::new(
         shapes_temp.remove(0_usize),
         med_desc.density,
-        Rc::clone(&materials[&med_desc.phase_func]),
+        Arc::clone(&materials[&med_desc.phase_func]),
     )));
     return Ok(());
 }
@@ -575,8 +575,8 @@ fn deserialize_constant_medium(
 // Aggregates
 fn create_aggregate(
     aggregate_type: &str,
-    shapes: Vec<Rc<dyn Shape>>,
-) -> Result<Box<dyn Aggregate>, DeserializeError> {
+    shapes: Vec<Arc<SyncShape>>,
+) -> Result<Box<SyncAggregate>, DeserializeError> {
     match aggregate_type {
         "List" => return Ok(Box::new(shapes)),
         "BVH" => return Ok(new_bvh(shapes)),

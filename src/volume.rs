@@ -1,25 +1,25 @@
 use crate::aggregate::AABB;
-use crate::material::Material;
 use crate::material::Reflectance;
 use crate::material::ScatterProperties;
+use crate::material::{Material, SyncMaterial};
 use crate::ray::Ray;
 use crate::shape::HitProperties;
-use crate::shape::Shape;
-use crate::texture::Texture;
+use crate::shape::{Shape, SyncShape};
+use crate::texture::SyncTexture;
 use crate::utils::unit_sphere_random;
 
 use rand;
-use std::rc::Rc;
+use std::sync::Arc;
 
 // TODO: Separate Phase Functions from Materials, and make them specific to Mediums
 trait PhaseFunction: Material {}
 
 pub struct Isotropic {
-    albedo: Rc<dyn Texture>,
+    albedo: Arc<SyncTexture>,
 }
 
 impl Isotropic {
-    pub fn new(albedo: Rc<dyn Texture>) -> Isotropic {
+    pub fn new(albedo: Arc<SyncTexture>) -> Isotropic {
         Isotropic { albedo: albedo }
     }
 }
@@ -44,16 +44,16 @@ impl Material for Isotropic {
 // TODO: Separate Mediums from shapes, such that a shape can have a medium, but a medium
 // does not need to be a shape; add Medium trait
 pub struct ConstantMedium {
-    boundary: Rc<dyn Shape>,
+    boundary: Arc<SyncShape>,
     density: f32,
-    phase_func: Rc<dyn Material>,
+    phase_func: Arc<SyncMaterial>,
 }
 
 impl ConstantMedium {
     pub fn new(
-        boundary: Rc<dyn Shape>,
+        boundary: Arc<SyncShape>,
         density: f32,
-        phase_func: Rc<dyn Material>,
+        phase_func: Arc<SyncMaterial>,
     ) -> ConstantMedium {
         ConstantMedium {
             boundary: boundary,
@@ -103,7 +103,7 @@ impl Shape for ConstantMedium {
         self.boundary.get_hit_properties(r, t_hit)
     }
 
-    fn get_material(&self) -> &Rc<dyn Material> {
+    fn get_material(&self) -> &Arc<SyncMaterial> {
         &self.phase_func
     }
 

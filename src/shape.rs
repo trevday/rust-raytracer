@@ -1,5 +1,5 @@
 use crate::aggregate::AABB;
-use crate::material::Material;
+use crate::material::SyncMaterial;
 use crate::matrix::Matrix4;
 use crate::point::Point3;
 use crate::ray::Ray;
@@ -7,7 +7,7 @@ use crate::utils;
 use crate::vector::Vector3;
 
 use std::f32;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct HitProperties {
     pub hit_point: Point3,
@@ -21,12 +21,13 @@ pub struct HitProperties {
 pub trait Shape {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<f32>;
     fn get_hit_properties(&self, r: &Ray, t_hit: f32) -> HitProperties;
-    fn get_material(&self) -> &Rc<dyn Material>;
+    fn get_material(&self) -> &Arc<SyncMaterial>;
     fn get_bounding_box(&self) -> AABB;
 
     fn pdf(&self, r: &Ray) -> f32;
     fn random_dir_towards(&self, from_origin: &Point3) -> Vector3;
 }
+pub type SyncShape = dyn Shape + Send + Sync;
 
 pub struct Sphere {
     local_to_world: Matrix4,
@@ -36,19 +37,19 @@ pub struct Sphere {
     // The enum struct would be slightly more efficient as it is immediately available
     // for use without having to reach into the Heap, but adding new variants is more
     // troublesome, and especially large variants may make the required size of each
-    // Material too large. The Rc + trait object allows easier creation of Material
+    // Material too large. The Arc + trait object allows easier creation of Material
     // variants, but introduces a small performance penalty to read from Heap memory.
     //
     // TODO: Further investigate Pointer-Enum, performance vs. memory tradeoff if
     // optimization is required.
-    material: Rc<dyn Material>,
+    material: Arc<SyncMaterial>,
 }
 
 impl Sphere {
     pub fn new(
         local_to_world: &Matrix4,
         radius: f32,
-        mat: Rc<dyn Material>,
+        mat: Arc<SyncMaterial>,
     ) -> Result<Sphere, &'static str> {
         Ok(Sphere {
             local_to_world: local_to_world.clone(),
@@ -118,7 +119,7 @@ impl Shape for Sphere {
         }
     }
 
-    fn get_material(&self) -> &Rc<dyn Material> {
+    fn get_material(&self) -> &Arc<SyncMaterial> {
         &self.material
     }
 
@@ -162,7 +163,7 @@ pub struct TriangleMesh {
     // TODO: Decide if I have enough need for a real Vector2 struct.
     tex_coords: Vec<(f32, f32)>,
     enable_backface_culling: bool,
-    material: Rc<dyn Material>,
+    material: Arc<SyncMaterial>,
 }
 
 impl TriangleMesh {
@@ -170,7 +171,7 @@ impl TriangleMesh {
         vertices: Vec<Point3>,
         tex_coords: Vec<(f32, f32)>,
         enable_backface_culling: bool,
-        material: Rc<dyn Material>,
+        material: Arc<SyncMaterial>,
     ) -> TriangleMesh {
         TriangleMesh {
             vertices: vertices,
@@ -182,7 +183,7 @@ impl TriangleMesh {
 }
 
 pub struct Triangle {
-    triangle_mesh: Rc<TriangleMesh>,
+    triangle_mesh: Arc<TriangleMesh>,
     // TODO: Make Vector generic over the data type,
     // and use it here.
     v0: usize,
@@ -195,7 +196,7 @@ pub struct Triangle {
 
 impl Triangle {
     pub fn new(
-        mesh: Rc<TriangleMesh>,
+        mesh: Arc<TriangleMesh>,
         v0: usize,
         v1: usize,
         v2: usize,
@@ -391,7 +392,7 @@ impl Shape for Triangle {
         }
     }
 
-    fn get_material(&self) -> &Rc<dyn Material> {
+    fn get_material(&self) -> &Arc<SyncMaterial> {
         &self.triangle_mesh.material
     }
 

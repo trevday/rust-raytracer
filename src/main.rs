@@ -6,6 +6,7 @@ mod material;
 mod matrix;
 mod pdf;
 mod point;
+mod progress;
 mod ray;
 mod resources;
 mod scene;
@@ -21,10 +22,11 @@ use clap::{App, Arg};
 use image::png::PNGEncoder;
 use image::ColorType;
 use rand;
-use std::{fs, fs::OpenOptions, path, process, sync::mpsc, sync::Arc, sync::Mutex, thread};
+use std::{fs, fs::OpenOptions, io, path, process, sync::mpsc, sync::Arc, sync::Mutex, thread};
 
 // Use statements for local modules
 use crate::color::RGB;
+use crate::progress::Progress;
 use crate::ray::Ray;
 use crate::resources::Resources;
 use crate::scene::Scene;
@@ -112,6 +114,13 @@ fn main() {
         (temp_tx, Arc::new(Mutex::new(temp_rx)))
     };
 
+    // Set up a structure to track progress and print to standard out
+    let progress_tracker = Arc::new(Mutex::new(Progress::new(
+        res_x as u64 * res_y as u64 * samples as u64,
+        Arc::new(Mutex::new(io::stdout())),
+        20_u32,
+    )));
+
     // Spawn threads up to the desired amount (minus one,
     // because the main thread is a thread too)
     let mut threads = Vec::new();
@@ -119,8 +128,9 @@ fn main() {
         let thread_scene = Arc::clone(&scene_spec);
         let thread_rx = Arc::clone(&rx);
         let thread_colors = Arc::clone(&colors);
+        let thread_progress = Arc::clone(&progress_tracker);
         threads.push(thread::spawn(move || {
-            thread_work(&thread_scene, &thread_rx, &thread_colors)
+            thread_work(&thread_scene, &thread_rx, &thread_colors, &thread_progress)
         }))
     }
 
@@ -136,11 +146,12 @@ fn main() {
     // Drop Sender so threads can close on their own
     drop(tx);
     // Start having the main thread do some work too
-    thread_work(&scene_spec, &rx, &colors);
+    thread_work(&scene_spec, &rx, &colors, &progress_tracker);
     // Wait for tracing threads to complete if the main thread completes early
     for t in threads {
         t.join().expect("Failed to finalize a tracing thread.");
     }
+    (*progress_tracker).lock().unwrap().done();
 
     // Once all tracing has been done, finalize data and convert to
     // 8 bit unsigned integer
@@ -172,6 +183,7 @@ fn thread_work(
     thread_scene: &Scene,
     thread_rx: &Mutex<mpsc::Receiver<(u32, u32)>>,
     thread_colors: &Mutex<Vec<RGB>>,
+    thread_progress: &Mutex<Progress>,
 ) {
     let res_x = thread_scene.logistics.resolution_x;
     let res_y = thread_scene.logistics.resolution_y;
@@ -213,6 +225,10 @@ fn thread_work(
                 .expect("Thread failed to acquire output data lock."));
             out_colors[((x * res_x) + y) as usize] =
                 out_colors[((x * res_x) + y) as usize] + pixel_color;
+        }
+
+        {
+            thread_progress.lock().unwrap().update(1);
         }
     }
 }

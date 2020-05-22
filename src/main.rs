@@ -22,7 +22,10 @@ use clap::{App, Arg};
 use image::png::PNGEncoder;
 use image::ColorType;
 use rand;
-use std::{fs, fs::OpenOptions, io, path, process, sync::mpsc, sync::Arc, sync::Mutex, thread};
+use std::{
+    fs, fs::OpenOptions, io, path, process, sync::mpsc, sync::Arc, sync::Mutex, thread,
+    time::Instant,
+};
 
 // Use statements for local modules
 use crate::color::RGB;
@@ -58,6 +61,9 @@ fn main() {
                 .index(2),
         )
         .get_matches();
+
+    // Grab a stamp for the start of the run
+    let program_start = Instant::now();
 
     // Grab the number of threads we want to use from arguments,
     // default to 2
@@ -171,7 +177,10 @@ fn main() {
     }
     // Write the image to disk
     match png_encoder.encode(&data, res_x, res_y, ColorType::RGB(8)) {
-        Ok(()) => println!("Success!"),
+        Ok(()) => println!(
+            "Success! Took {} seconds",
+            program_start.elapsed().as_secs_f64()
+        ),
         Err(e) => {
             eprintln!("Failed to encode the png for output: {}", e);
             process::exit(1);

@@ -167,7 +167,7 @@ fn main() {
         .expect("Main thread failed to lock output color data for writing to image."));
     for y in 0..res_y {
         for x in 0..res_x {
-            let mut col = locked_colors[((x * res_x) + y) as usize] / samples as f32;
+            let mut col = locked_colors[((x * res_y) + y) as usize] / samples as f32;
             col = RGB::new(col.r.sqrt(), col.g.sqrt(), col.b.sqrt());
 
             data.push((col.r * COLOR_SPACE) as u8);
@@ -232,8 +232,8 @@ fn thread_work(
             let out_colors = &mut (*thread_colors
                 .lock()
                 .expect("Thread failed to acquire output data lock."));
-            out_colors[((x * res_x) + y) as usize] =
-                out_colors[((x * res_x) + y) as usize] + pixel_color;
+            out_colors[((x * res_y) + y) as usize] =
+                out_colors[((x * res_y) + y) as usize] + pixel_color;
         }
 
         {

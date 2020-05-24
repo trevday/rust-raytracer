@@ -108,8 +108,9 @@ impl Shape for Sphere {
         HitProperties {
             hit_point: r.point_at(t_hit),
 
-            normal: &self.local_to_world
-                * (((local_ray.point_at(t_hit) - Point3::origin()) / self.radius).normalized()),
+            normal: (&self.local_to_world
+                * ((local_ray.point_at(t_hit) - Point3::origin()) / self.radius))
+                .normalized(),
 
             u: (1.0_f32 - ((hit_point.z.atan2(hit_point.x) + f32::consts::PI) * ONE_OVER_2_PI)),
             v: ((theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),

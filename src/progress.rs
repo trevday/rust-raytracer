@@ -9,7 +9,7 @@ pub struct Progress {
     last_update_percentage: f32,
 }
 
-const UPDATE_DELTA: f32 = 0.01_f32;
+const UPDATE_DELTA: f32 = 0.009_f32;
 
 const PROGRESS_PREFIX: &str = "\rProgress: <";
 const FILLED_CHAR: char = '#';

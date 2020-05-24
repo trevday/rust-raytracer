@@ -81,12 +81,16 @@ impl Shape for ConstantMedium {
         if t_hit1 < t_min {
             t_hit1 = t_min;
         }
-        if t_hit2 < t_max {
+        if t_hit2 > t_max {
             t_hit2 = t_max;
         }
 
         if t_hit1 >= t_hit2 {
             return None;
+        }
+
+        if t_hit1 < 0.0_f32 {
+            t_hit1 = 0.0_f32;
         }
 
         let distance_inside_boundary = (t_hit2 - t_hit1) * r.dir.length();

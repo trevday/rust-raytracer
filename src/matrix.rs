@@ -39,37 +39,39 @@ impl Matrix4 {
         m
     }
 
-    pub fn new_rotation(rotate: &Vector3) -> Matrix4 {
-        let radians_rotation = Vector3::new(
-            rotate.x.to_radians(),
-            rotate.y.to_radians(),
-            rotate.z.to_radians(),
-        );
-
+    pub fn new_rotation_x(degrees: f32) -> Matrix4 {
+        let sin = degrees.to_radians().sin();
+        let cos = degrees.to_radians().cos();
         let mut m = Matrix4::new_identity();
-        // First row
-        m.data[0][0] = radians_rotation.z.cos() * radians_rotation.y.cos();
-        m.data[0][1] =
-            radians_rotation.z.cos() * radians_rotation.y.sin() * radians_rotation.x.sin()
-                - radians_rotation.z.sin() * radians_rotation.x.cos();
-        m.data[0][2] =
-            radians_rotation.z.cos() * radians_rotation.y.sin() * radians_rotation.x.cos()
-                + radians_rotation.z.sin() * radians_rotation.x.sin();
 
-        // Second row
-        m.data[1][0] = radians_rotation.z.sin() * radians_rotation.y.cos();
-        m.data[1][1] =
-            radians_rotation.z.sin() * radians_rotation.y.sin() * radians_rotation.x.sin()
-                + radians_rotation.z.cos() * radians_rotation.x.cos();
-        m.data[1][2] =
-            radians_rotation.z.sin() * radians_rotation.y.sin() * radians_rotation.x.cos()
-                - radians_rotation.z.cos() * radians_rotation.x.sin();
+        m.data[1][1] = cos;
+        m.data[1][2] = -sin;
+        m.data[2][1] = sin;
+        m.data[2][2] = cos;
+        m
+    }
 
-        // Third row
-        m.data[2][0] = -radians_rotation.y.sin();
-        m.data[2][1] = radians_rotation.y.cos() * radians_rotation.x.sin();
-        m.data[2][2] = radians_rotation.y.cos() * radians_rotation.x.cos();
+    pub fn new_rotation_y(degrees: f32) -> Matrix4 {
+        let sin = degrees.to_radians().sin();
+        let cos = degrees.to_radians().cos();
+        let mut m = Matrix4::new_identity();
 
+        m.data[0][0] = cos;
+        m.data[0][2] = sin;
+        m.data[2][0] = -sin;
+        m.data[2][2] = cos;
+        m
+    }
+
+    pub fn new_rotation_z(degrees: f32) -> Matrix4 {
+        let sin = degrees.to_radians().sin();
+        let cos = degrees.to_radians().cos();
+        let mut m = Matrix4::new_identity();
+
+        m.data[0][0] = cos;
+        m.data[0][1] = -sin;
+        m.data[1][0] = sin;
+        m.data[1][1] = cos;
         m
     }
 

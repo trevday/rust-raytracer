@@ -6,14 +6,14 @@
 	},
 	"Camera": {
 		"position": [
-			1,
 			0,
+			0.25,
 			1
 		],
 		"look_at": [
-			0.5,
 			0,
-			-0.5
+			0,
+			0
 		],
 		"up": [
 			0,
@@ -22,8 +22,8 @@
 		],
 		"fov": 90,
 		"aspect_ratio": 1.3,
-		"aperture": 0.2,
-		"focus_distance": 1.5
+		"aperture": 0,
+		"focus_distance": 1
 	},
 	"Textures": {
 		"Checker1": {
@@ -95,9 +95,9 @@
 			"type": "Dielectric",
 			"refractive_index": 1.5
 		},
-		"DiffuseLight": {
-			"type": "DiffuseLight",
-			"emission": "Test"
+		"Test": {
+			"type": "Lambert",
+			"albedo": "Test"
 		},
 		"IsotropicPhase": {
 			"type": "Isotropic",
@@ -110,22 +110,22 @@
 			"type": "Mesh",
 			"file_path": "Cube.obj",
 			"enable_backface_culling": false,
-			"material": "DiffuseLight",
+			"material": "Test",
 			"transform": {
 				"translate": [
-					-0.25,
+					0,
 					0.25,
-					-0.25
+					0
 				],
 				"rotate": [
-					30,
 					45,
-					90
+					45,
+					45
 				],
 				"scale": [
-					0.25,
-					0.25,
-					0.25
+					0.5,
+					0.5,
+					0.5
 				]
 			}
 		},
@@ -140,52 +140,6 @@
 			},
 			"radius": 100,
 			"material": "Lambert1"
-		},
-		{
-			"type": "Sphere",
-			"transform": {
-				"translate": [
-					0.5,
-					0,
-					-0.5
-				],
-				"rotate": [
-					0,
-					180,
-					0
-				],
-				"scale": [
-					1,
-					1,
-					1
-				]
-			},
-			"radius": 0.5,
-			"material": "Lambert2"
-		},
-		{
-			"type": "Sphere",
-			"transform": {
-				"translate": [
-					-1,
-					0,
-					-1
-				]
-			},
-			"radius": 0.5,
-			"material": "Dielectric1"
-		},
-		{
-			"type": "Sphere",
-			"transform": {
-				"translate": [
-					-1,
-					0,
-					-1
-				]
-			},
-			"radius": -0.45,
-			"material": "Dielectric1"
 		}
 	]
 }

@@ -211,8 +211,4 @@ impl OrthonormalBasis {
     pub fn local(&self, v: &Vector3) -> Vector3 {
         (v.x * self.axis[0]) + (v.y * self.axis[1]) + (v.z * self.axis[2])
     }
-
-    pub fn w(&self) -> Vector3 {
-        self.axis[2]
-    }
 }

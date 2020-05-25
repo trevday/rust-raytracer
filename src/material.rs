@@ -9,7 +9,6 @@ use crate::vector::Vector3;
 
 use rand;
 use serde::Deserialize;
-use std::rc::Rc;
 use std::sync::Arc;
 
 fn reflect(v: Vector3, n: Vector3) -> Vector3 {
@@ -31,7 +30,7 @@ fn schlick(cosine: f32, index: f32) -> f32 {
 
 pub enum Reflectance {
     Specular(Ray),
-    PDF(Rc<dyn PDF>),
+    PDF(PDF),
 }
 pub struct ScatterProperties {
     pub reflectance: Reflectance,
@@ -107,8 +106,7 @@ impl Material for Lambert {
         };
 
         Some(ScatterProperties {
-            // TODO: Avoid an allocation here?
-            reflectance: Reflectance::PDF(Rc::new(pdf::Cosine::new(&bump_modified_normal))),
+            reflectance: Reflectance::PDF(PDF::Cosine(pdf::Cosine::new(bump_modified_normal))),
             attenuation: self
                 .albedo
                 .value(hit_props.u, hit_props.v, &hit_props.hit_point),

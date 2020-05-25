@@ -7,29 +7,49 @@ use crate::vector::Vector3;
 
 use rand::seq::SliceRandom;
 use std::f32;
-use std::rc::Rc;
 use std::sync::Arc;
 
-pub trait PDF {
-    fn value(&self, dir: &Vector3) -> f32;
-    fn generate(&self) -> Vector3;
+pub enum PDF {
+    Cosine(Cosine),
+    Shape(Shape),
+    Mixture(Mixture),
 }
 
-pub struct Cosine {
-    onb: OrthonormalBasis,
-}
-
-impl Cosine {
-    pub fn new(v: &Vector3) -> Cosine {
-        Cosine {
-            onb: OrthonormalBasis::new(v),
+impl PDF {
+    pub fn value(&self, r: &Ray) -> f32 {
+        match self {
+            PDF::Cosine(c) => c.value(r),
+            PDF::Shape(s) => s.value(r),
+            PDF::Mixture(m) => m.value(r),
+        }
+    }
+    pub fn generate(&self, origin: &Point3) -> Vector3 {
+        match self {
+            PDF::Cosine(c) => c.generate(),
+            PDF::Shape(s) => s.generate(origin),
+            PDF::Mixture(m) => m.generate(origin),
+        }
+    }
+    pub fn is_valid(&self) -> bool {
+        match self {
+            PDF::Cosine(_) => true,
+            PDF::Shape(_) => true,
+            PDF::Mixture(m) => !m.is_empty(),
         }
     }
 }
 
-impl PDF for Cosine {
-    fn value(&self, dir: &Vector3) -> f32 {
-        let cosine = dir.normalized().dot(self.onb.w());
+pub struct Cosine {
+    normal: Vector3,
+}
+
+impl Cosine {
+    pub fn new(v: Vector3) -> Cosine {
+        Cosine { normal: v }
+    }
+
+    fn value(&self, r: &Ray) -> f32 {
+        let cosine = r.dir.normalized().dot(self.normal);
         if cosine < 0.0_f32 {
             0.0_f32
         } else {
@@ -38,64 +58,71 @@ impl PDF for Cosine {
     }
 
     fn generate(&self) -> Vector3 {
-        self.onb.local(&utils::random_cosine_direction())
+        OrthonormalBasis::new(&self.normal).local(&utils::random_cosine_direction())
     }
 }
 
 pub struct Shape {
     shape: Arc<shape::SyncShape>,
-    origin: Point3,
 }
 
 impl Shape {
-    pub fn new(shape: &Arc<shape::SyncShape>, origin: &Point3) -> Shape {
+    pub fn new(shape: &Arc<shape::SyncShape>) -> Shape {
         Shape {
             shape: Arc::clone(shape),
-            origin: *origin,
         }
     }
-}
 
-impl PDF for Shape {
-    fn value(&self, dir: &Vector3) -> f32 {
-        self.shape.pdf(&Ray::new(self.origin, *dir))
+    fn value(&self, r: &Ray) -> f32 {
+        self.shape.pdf(r)
     }
 
-    fn generate(&self) -> Vector3 {
-        self.shape.random_dir_towards(&self.origin)
+    fn generate(&self, origin: &Point3) -> Vector3 {
+        self.shape.random_dir_towards(origin)
     }
 }
 
 pub struct Mixture {
-    members: Vec<Rc<dyn PDF>>,
+    members: Vec<PDF>,
 }
 
 impl Mixture {
-    pub fn new(members: Vec<Rc<dyn PDF>>) -> Result<Mixture, &'static str> {
-        if members.is_empty() {
-            Err("Tried to construct a Mixture PDF with no members!")
-        } else {
-            Ok(Mixture { members: members })
-        }
+    pub fn new(members: Vec<PDF>) -> Mixture {
+        Mixture { members: members }
     }
-}
 
-impl PDF for Mixture {
-    fn value(&self, dir: &Vector3) -> f32 {
+    pub fn is_empty(&self) -> bool {
+        self.members.is_empty()
+    }
+
+    fn value(&self, r: &Ray) -> f32 {
         let weight = 1.0_f32 / self.members.len() as f32;
         let mut sum = 0.0_f32;
 
         for pdf in &self.members {
-            sum += weight * pdf.value(dir);
+            sum += weight * pdf.value(r);
         }
 
         return sum;
     }
 
-    fn generate(&self) -> Vector3 {
+    fn generate(&self, origin: &Point3) -> Vector3 {
         match self.members.choose(&mut rand::thread_rng()) {
-            Some(m) => m.generate(),
-            None => panic!("Mixture PDF had no members, this is not expected behavior."),
+            Some(m) => m.generate(origin),
+            None => panic!("Mixture PDF had no members!"),
         }
+    }
+}
+
+pub fn pair_value(first: &PDF, second: &PDF, r: &Ray) -> f32 {
+    first.value(r) * 0.5_f32 + second.value(r) * 0.5_f32
+}
+
+pub fn pair_generate(first: &PDF, second: &PDF, origin: &Point3) -> Vector3 {
+    let r = rand::random::<f32>();
+    if r < 0.5_f32 {
+        first.generate(origin)
+    } else {
+        second.generate(origin)
     }
 }

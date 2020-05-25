@@ -2,6 +2,7 @@ use crate::aggregate::{new_bvh, SyncAggregate};
 use crate::camera::Camera;
 use crate::material;
 use crate::material::SyncMaterial;
+use crate::pdf;
 use crate::point::Point3;
 use crate::resources::Resources;
 use crate::shape;
@@ -20,7 +21,7 @@ pub struct Scene {
     pub logistics: Logistics,
     pub camera: Camera,
     pub shape_aggregate: Box<SyncAggregate>,
-    pub important_samples: Vec<Arc<SyncShape>>,
+    pub important_samples: Arc<pdf::PDF>,
 }
 
 #[derive(Deserialize)]
@@ -125,12 +126,13 @@ pub fn deserialize(
     }
 
     // Pull out any important shapes for sampling in a separate list
-    let mut important_samples = Vec::new();
+    let mut samples = Vec::new();
     for shape in &shapes {
         if shape.get_material().is_important() {
-            important_samples.push(Arc::clone(shape));
+            samples.push(pdf::PDF::Shape(pdf::Shape::new(&shape)));
         }
     }
+    let important_samples = Arc::new(pdf::PDF::Mixture(pdf::Mixture::new(samples)));
 
     // Break the shapes down into the aggregate structure
     let aggregate_type = match get_required_key(&top_level, "Aggregate")?.as_str() {

@@ -9,7 +9,6 @@ use crate::vector::Axis;
 
 use std::cmp;
 use std::mem;
-use std::rc::Rc;
 use std::sync::Arc;
 
 const MAX_DEPTH: i32 = 50;
@@ -17,7 +16,7 @@ const MAX_DEPTH: i32 = 50;
 pub fn trace(
     r: &Ray,
     shape_aggregate: &SyncAggregate,
-    important_samples: &Vec<Arc<SyncShape>>,
+    important_samples: &pdf::PDF,
     workspace: &mut Workspace,
     bg_func: &dyn Fn(&Ray) -> RGB,
     depth: i32,
@@ -57,34 +56,29 @@ pub fn trace(
                             }
                             // Otherwise use importance sampling
                             Reflectance::PDF(hit_pdf) => {
-                                // TODO: Avoid allocating all of this here and instead pre-cache it. This is
-                                // definitely an avoidable performance hit, but doing it for now to reduce
-                                // complexity of this change.
-                                let pdf_mixture = if !important_samples.is_empty() {
-                                    let mut shape_pdfs: Vec<Rc<dyn pdf::PDF>> = Vec::new();
-                                    for sample in important_samples {
-                                        shape_pdfs.push(Rc::new(pdf::Shape::new(
-                                            sample,
+                                let (scattered, pdf_val) = if important_samples.is_valid() {
+                                    let scattered = Ray::new(
+                                        hit_props.hit_point,
+                                        pdf::pair_generate(
+                                            important_samples,
+                                            &hit_pdf,
                                             &hit_props.hit_point,
-                                        )));
-                                    }
-                                    let shapes_mix =
-                                        Rc::new(pdf::Mixture::new(shape_pdfs).unwrap());
-
-                                    Rc::new(
-                                        pdf::Mixture::new(vec![Rc::clone(&hit_pdf), shapes_mix])
-                                            .unwrap(),
-                                    )
+                                        ),
+                                    );
+                                    let val =
+                                        pdf::pair_value(important_samples, &hit_pdf, &scattered);
+                                    (scattered, val)
                                 } else {
-                                    Rc::clone(&hit_pdf)
+                                    let scattered = Ray::new(
+                                        hit_props.hit_point,
+                                        hit_pdf.generate(&hit_props.hit_point),
+                                    );
+                                    let val = hit_pdf.value(&scattered);
+                                    (scattered, val)
                                 };
 
-                                let scattered =
-                                    Ray::new(hit_props.hit_point, pdf_mixture.generate());
-                                let pdf_val = pdf_mixture.value(&scattered.dir);
-
                                 return scattered_props.attenuation
-                                    * hit_pdf.value(&scattered.dir)
+                                    * hit_pdf.value(&scattered)
                                     * trace(
                                         &scattered,
                                         shape_aggregate,

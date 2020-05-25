@@ -186,18 +186,40 @@ impl TriangleMesh {
             material: material,
         }
     }
+
+    fn get_uvs(
+        &self,
+        t0: Option<usize>,
+        t1: Option<usize>,
+        t2: Option<usize>,
+    ) -> (TexCoord, TexCoord, TexCoord) {
+        let uv0 = match t0 {
+            Some(t) => self.tex_coords[t],
+            None => TexCoord::new(0_f32, 0_f32),
+        };
+        let uv1 = match t1 {
+            Some(t) => self.tex_coords[t],
+            None => TexCoord::new(1_f32, 0_f32),
+        };
+        let uv2 = match t2 {
+            Some(t) => self.tex_coords[t],
+            None => TexCoord::new(1_f32, 1_f32),
+        };
+
+        (uv0, uv1, uv2)
+    }
 }
 
 pub struct Triangle {
     triangle_mesh: Arc<TriangleMesh>,
-    // TODO: Make Vector generic over the data type,
-    // and use it here.
     v0: usize,
     v1: usize,
     v2: usize,
     t0: Option<usize>,
     t1: Option<usize>,
     t2: Option<usize>,
+    pu: Vector3,
+    pv: Vector3,
 }
 
 impl Triangle {
@@ -252,6 +274,45 @@ impl Triangle {
             }
             None => {}
         }
+
+        // Pre-calculate and cache partial derivatives, they do not change
+        let vertex0 = mesh.vertices[v0];
+        let vertex1 = mesh.vertices[v1];
+        let vertex2 = mesh.vertices[v2];
+        let (uv0, uv1, uv2) = mesh.get_uvs(t0, t1, t2);
+
+        let mut pu = Vector3::new_empty();
+        let mut pv = Vector3::new_empty();
+        let duv02 = uv0 - uv2;
+        let duv12 = uv1 - uv2;
+        let dp02 = vertex0 - vertex2;
+        let dp12 = vertex1 - vertex2;
+        let uv_determinant = duv02.u() * duv12.v() - duv02.v() * duv12.u();
+        let degenerate_uv = uv_determinant.abs() < std::f32::EPSILON;
+        if !degenerate_uv {
+            let inv_det = 1.0_f32 / uv_determinant;
+            pu = (duv12.v() * dp02 - duv02.v() * dp12) * inv_det;
+            pv = (-duv12.u() * dp02 + duv02.u() * dp12) * inv_det;
+        }
+        if degenerate_uv || pu.cross(pv).squared_length() == 0.0_f32 {
+            let mut ng = (vertex2 - vertex0).cross(vertex1 - vertex0);
+            if ng.squared_length() == 0.0_f32 {
+                return Err(format!("Triangle texture coordinates are degenerate. UV1: ({}, {}), UV2: ({}, {}), UV3: ({}, {})",
+            uv0.u(), uv0.v(), uv1.u(), uv1.v(), uv2.u(), uv2.v()
+            ));
+            } else {
+                ng = ng.normalized();
+                if ng.x().abs() > ng.y().abs() {
+                    pu = Vector3::new(-ng.z(), 0.0_f32, ng.x())
+                        / (ng.x() * ng.x() + ng.z() * ng.z()).sqrt();
+                } else {
+                    pu = Vector3::new(0.0_f32, ng.z(), -ng.y())
+                        / (ng.y() * ng.y() + ng.z() * ng.z()).sqrt();
+                }
+                pv = ng.cross(pu);
+            }
+        }
+
         Ok(Triangle {
             triangle_mesh: mesh,
             v0: v0,
@@ -260,6 +321,8 @@ impl Triangle {
             t0: t0,
             t1: t1,
             t2: t2,
+            pu: pu,
+            pv: pv,
         })
     }
 }
@@ -338,18 +401,7 @@ impl Shape for Triangle {
 
         let w = 1.0_f32 - u - v;
 
-        let uv0 = match self.t0 {
-            Some(t) => self.triangle_mesh.tex_coords[t],
-            None => TexCoord::new(0_f32, 0_f32),
-        };
-        let uv1 = match self.t1 {
-            Some(t) => self.triangle_mesh.tex_coords[t],
-            None => TexCoord::new(1_f32, 0_f32),
-        };
-        let uv2 = match self.t2 {
-            Some(t) => self.triangle_mesh.tex_coords[t],
-            None => TexCoord::new(1_f32, 1_f32),
-        };
+        let (uv0, uv1, uv2) = self.triangle_mesh.get_uvs(self.t0, self.t1, self.t2);
 
         // Apply to UV coordinates from mesh
         let uv = TexCoord::new(
@@ -357,38 +409,7 @@ impl Shape for Triangle {
             uv0.v() * u + uv1.v() * v + uv2.v() * w,
         );
 
-        // TODO: Pre-calculate and cache the partial derivatives for each triangle?
-        let mut pu = Vector3::new_empty();
-        let mut pv = Vector3::new_empty();
-        let duv02 = uv0 - uv2;
-        let duv12 = uv1 - uv2;
-        let dp02 = vertex0 - vertex2;
-        let dp12 = vertex1 - vertex2;
-        let uv_determinant = duv02.u() * duv12.v() - duv02.v() * duv12.u();
-        let degenerate_uv = uv_determinant.abs() < std::f32::EPSILON;
-        if !degenerate_uv {
-            let inv_det = 1.0_f32 / uv_determinant;
-            pu = (duv12.v() * dp02 - duv02.v() * dp12) * inv_det;
-            pv = (-duv12.u() * dp02 + duv02.u() * dp12) * inv_det;
-        }
-        if degenerate_uv || pu.cross(pv).squared_length() == 0.0_f32 {
-            let mut ng = (vertex2 - vertex0).cross(vertex1 - vertex0);
-            if ng.squared_length() == 0.0_f32 {
-                // TODO: If pre-calculating, make this a build error.
-                pu = Vector3::new_empty();
-                pv = Vector3::new_empty();
-            } else {
-                ng = ng.normalized();
-                if ng.x().abs() > ng.y().abs() {
-                    pu = Vector3::new(-ng.z(), 0.0_f32, ng.x())
-                        / (ng.x() * ng.x() + ng.z() * ng.z()).sqrt();
-                } else {
-                    pu = Vector3::new(0.0_f32, ng.z(), -ng.y())
-                        / (ng.y() * ng.y() + ng.z() * ng.z()).sqrt();
-                }
-                pv = ng.cross(pu);
-            }
-        }
+        let mut pu = self.pu;
         if determinant < 0.0_f32 {
             pu = -pu; // Flip if ray comes from back
         }
@@ -398,7 +419,7 @@ impl Shape for Triangle {
             normal: normal,
             uv: uv,
             pu: pu,
-            pv: pv,
+            pv: self.pv,
         }
     }
 

@@ -343,7 +343,7 @@ fn deserialize_metal(
         Some(b) => {
             if !textures.contains_key(b) {
                 return Err(DeserializeError::LocalError(format!(
-                    "Missing bump map Texture {} for Lambert.",
+                    "Missing bump map Texture {} for Metal.",
                     b
                 )));
             }

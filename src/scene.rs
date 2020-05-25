@@ -302,7 +302,15 @@ fn deserialize_lambert(
     }
     let bump_map = match &lambert_desc.bump_map {
         None => None,
-        Some(b) => Some(Arc::clone(&textures[b])),
+        Some(b) => {
+            if !textures.contains_key(b) {
+                return Err(DeserializeError::LocalError(format!(
+                    "Missing bump map Texture {} for Lambert.",
+                    b
+                )));
+            }
+            Some(Arc::clone(&textures[b]))
+        }
     };
     return Ok(Arc::new(material::Lambert::new(
         Arc::clone(&textures[&lambert_desc.albedo]),
@@ -315,6 +323,7 @@ fn deserialize_lambert(
 struct MetalDescription {
     albedo: String,
     roughness: f32,
+    bump_map: Option<String>,
 }
 
 fn deserialize_metal(
@@ -328,9 +337,22 @@ fn deserialize_metal(
             metal_desc.albedo
         )));
     }
+    let bump_map = match &metal_desc.bump_map {
+        None => None,
+        Some(b) => {
+            if !textures.contains_key(b) {
+                return Err(DeserializeError::LocalError(format!(
+                    "Missing bump map Texture {} for Lambert.",
+                    b
+                )));
+            }
+            Some(Arc::clone(&textures[b]))
+        }
+    };
     return Ok(Arc::new(material::Metal::new(
         Arc::clone(&textures[&metal_desc.albedo]),
         metal_desc.roughness,
+        bump_map,
     )));
 }
 

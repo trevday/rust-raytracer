@@ -28,6 +28,32 @@ fn schlick(cosine: f32, index: f32) -> f32 {
     r0 + (1.0_f32 - r0) * (1.0_f32 - cosine).powi(5)
 }
 
+// https://www.microsoft.com/en-us/research/wp-content/uploads/1978/01/p286-blinn.pdf
+const BUMP_DELTA: f32 = 0.005_f32; // TODO: Make bump delta dynamic
+fn bump_modify(hit_props: &HitProperties, bump_map: &SyncTexture) -> Vector3 {
+    // Get base value of bump at u, v, p
+    let displacement = bump_map.bump_value(hit_props.u, hit_props.v, &hit_props.hit_point);
+    // Create partial derivatives for bump
+    // by shifting u, v, and p
+    let displacement_u = bump_map.bump_value(
+        hit_props.u + BUMP_DELTA,
+        hit_props.v,
+        &(hit_props.hit_point + BUMP_DELTA * hit_props.pu),
+    );
+    let displacement_v = bump_map.bump_value(
+        hit_props.u,
+        hit_props.v + BUMP_DELTA,
+        &(hit_props.hit_point + BUMP_DELTA * hit_props.pv),
+    );
+
+    // Determine new Pu and Pv
+    let new_pu = hit_props.pu + ((displacement_u - displacement) / BUMP_DELTA) * hit_props.normal;
+    let new_pv = hit_props.pv + ((displacement_v - displacement) / BUMP_DELTA) * hit_props.normal;
+
+    // Cross product of displaced Pu and Pv yields the new normal
+    new_pu.cross(new_pv).normalized()
+}
+
 pub enum Reflectance {
     Specular(Ray),
     PDF(PDF),
@@ -58,7 +84,6 @@ pub type SyncMaterial = dyn Material + Send + Sync;
 
 pub struct Lambert {
     albedo: Arc<SyncTexture>,
-    // TODO: Expose to other materials, such as Metal
     bump_map: Option<Arc<SyncTexture>>,
 }
 
@@ -71,38 +96,12 @@ impl Lambert {
     }
 }
 
-const BUMP_DELTA: f32 = 0.005_f32; // TODO: Make bump delta dynamic
 impl Material for Lambert {
     fn scatter(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
         // Apply bump map if present
-        // https://www.microsoft.com/en-us/research/wp-content/uploads/1978/01/p286-blinn.pdf
         let bump_modified_normal = match &self.bump_map {
             None => hit_props.normal,
-            Some(b) => {
-                // Get base value of bump at u, v, p
-                let displacement = b.bump_value(hit_props.u, hit_props.v, &hit_props.hit_point);
-                // Create partial derivatives for bump
-                // by shifting u, v, and p
-                let displacement_u = b.bump_value(
-                    hit_props.u + BUMP_DELTA,
-                    hit_props.v,
-                    &(hit_props.hit_point + BUMP_DELTA * hit_props.pu),
-                );
-                let displacement_v = b.bump_value(
-                    hit_props.u,
-                    hit_props.v + BUMP_DELTA,
-                    &(hit_props.hit_point + BUMP_DELTA * hit_props.pv),
-                );
-
-                // Determine new Pu and Pv
-                let new_pu = hit_props.pu
-                    + ((displacement_u - displacement) / BUMP_DELTA) * hit_props.normal;
-                let new_pv = hit_props.pv
-                    + ((displacement_v - displacement) / BUMP_DELTA) * hit_props.normal;
-
-                // Cross product of displaced Pu and Pv yields the new normal
-                new_pu.cross(new_pv).normalized()
-            }
+            Some(b) => bump_modify(hit_props, &(*(*b))),
         };
 
         Some(ScatterProperties {
@@ -121,10 +120,15 @@ impl Material for Lambert {
 pub struct Metal {
     albedo: Arc<SyncTexture>,
     roughness: f32,
+    bump_map: Option<Arc<SyncTexture>>,
 }
 
 impl Metal {
-    pub fn new(albedo: Arc<SyncTexture>, roughness: f32) -> Metal {
+    pub fn new(
+        albedo: Arc<SyncTexture>,
+        roughness: f32,
+        bump_map: Option<Arc<SyncTexture>>,
+    ) -> Metal {
         // Clamp roughness
         let mut r = roughness;
         if r < 0_f32 {
@@ -136,13 +140,20 @@ impl Metal {
         Metal {
             albedo: albedo,
             roughness: r,
+            bump_map: bump_map,
         }
     }
 }
 
 impl Material for Metal {
     fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
-        let reflected = reflect(in_ray.dir.normalized(), hit_props.normal);
+        // Apply bump map if present
+        let bump_modified_normal = match &self.bump_map {
+            None => hit_props.normal,
+            Some(b) => bump_modify(hit_props, &(*(*b))),
+        };
+
+        let reflected = reflect(in_ray.dir.normalized(), bump_modified_normal);
         let out_ray_dir = reflected + self.roughness * utils::unit_sphere_random();
 
         Some(ScatterProperties {

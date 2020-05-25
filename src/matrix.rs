@@ -33,9 +33,9 @@ impl Matrix4 {
 
     pub fn new_translation(translate: &Vector3) -> Matrix4 {
         let mut m = Matrix4::new_identity();
-        m.data[0][3] = translate.x;
-        m.data[1][3] = translate.y;
-        m.data[2][3] = translate.z;
+        m.data[0][3] = translate.x();
+        m.data[1][3] = translate.y();
+        m.data[2][3] = translate.z();
         m
     }
 
@@ -77,9 +77,9 @@ impl Matrix4 {
 
     pub fn new_scale(scale: &Vector3) -> Matrix4 {
         let mut m = Matrix4::new_identity();
-        m.data[0][0] = scale.x;
-        m.data[1][1] = scale.y;
-        m.data[2][2] = scale.z;
+        m.data[0][0] = scale.x();
+        m.data[1][1] = scale.y();
+        m.data[2][2] = scale.z();
         m
     }
 
@@ -155,9 +155,9 @@ impl ops::Mul<Vector3> for &Matrix4 {
     type Output = Vector3;
     fn mul(self, rhs: Vector3) -> Vector3 {
         Vector3::new(
-            self.data[0][0] * rhs.x + self.data[0][1] * rhs.y + self.data[0][2] * rhs.z,
-            self.data[1][0] * rhs.x + self.data[1][1] * rhs.y + self.data[1][2] * rhs.z,
-            self.data[2][0] * rhs.x + self.data[2][1] * rhs.y + self.data[2][2] * rhs.z,
+            self.data[0][0] * rhs.x() + self.data[0][1] * rhs.y() + self.data[0][2] * rhs.z(),
+            self.data[1][0] * rhs.x() + self.data[1][1] * rhs.y() + self.data[1][2] * rhs.z(),
+            self.data[2][0] * rhs.x() + self.data[2][1] * rhs.y() + self.data[2][2] * rhs.z(),
         )
     }
 }
@@ -166,17 +166,17 @@ impl ops::Mul<Point3> for &Matrix4 {
     type Output = Point3;
     fn mul(self, rhs: Point3) -> Point3 {
         Point3::new(
-            self.data[0][0] * rhs.x
-                + self.data[0][1] * rhs.y
-                + self.data[0][2] * rhs.z
+            self.data[0][0] * rhs.x()
+                + self.data[0][1] * rhs.y()
+                + self.data[0][2] * rhs.z()
                 + self.data[0][3] * 1_f32,
-            self.data[1][0] * rhs.x
-                + self.data[1][1] * rhs.y
-                + self.data[1][2] * rhs.z
+            self.data[1][0] * rhs.x()
+                + self.data[1][1] * rhs.y()
+                + self.data[1][2] * rhs.z()
                 + self.data[1][3] * 1_f32,
-            self.data[2][0] * rhs.x
-                + self.data[2][1] * rhs.y
-                + self.data[2][2] * rhs.z
+            self.data[2][0] * rhs.x()
+                + self.data[2][1] * rhs.y()
+                + self.data[2][2] * rhs.z()
                 + self.data[2][3] * 1_f32,
         )
     }

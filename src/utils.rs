@@ -110,13 +110,13 @@ const NOISE_DATA: [usize; NOISE_SIZE * 2] = [
 ];
 // Perlin noise
 pub fn noise(p: &Point3) -> f32 {
-    let mut ix = p.x.floor() as i32;
-    let mut iy = p.y.floor() as i32;
-    let mut iz = p.z.floor() as i32;
+    let mut ix = p.x().floor() as i32;
+    let mut iy = p.y().floor() as i32;
+    let mut iz = p.z().floor() as i32;
 
-    let dx = p.x - ix as f32;
-    let dy = p.y - iy as f32;
-    let dz = p.z - iz as f32;
+    let dx = p.x() - ix as f32;
+    let dy = p.y() - iy as f32;
+    let dz = p.z() - iz as f32;
 
     // Reduce to the size of our noise data
     ix &= NOISE_SIZE as i32 - 1;
@@ -198,7 +198,7 @@ impl OrthonormalBasis {
             axis: [Vector3::new_empty(); 3],
         };
         o.axis[2] = *v;
-        let a = if v.x.abs() > 0.9_f32 {
+        let a = if v.x().abs() > 0.9_f32 {
             Vector3::new(0.0_f32, 1.0_f32, 0.0_f32)
         } else {
             Vector3::new(1.0_f32, 0.0_f32, 0.0_f32)
@@ -209,6 +209,6 @@ impl OrthonormalBasis {
     }
 
     pub fn local(&self, v: &Vector3) -> Vector3 {
-        (v.x * self.axis[0]) + (v.y * self.axis[1]) + (v.z * self.axis[2])
+        (v.x() * self.axis[0]) + (v.y() * self.axis[1]) + (v.z() * self.axis[2])
     }
 }

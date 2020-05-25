@@ -444,17 +444,17 @@ impl AABB {
 
     fn center(&self) -> Point3 {
         Point3::new(
-            self.min.x * 0.5_f32 + self.max.x * 0.5_f32,
-            self.min.y * 0.5_f32 + self.max.y * 0.5_f32,
-            self.min.z * 0.5_f32 + self.max.z * 0.5_f32,
+            self.min.x() * 0.5_f32 + self.max.x() * 0.5_f32,
+            self.min.y() * 0.5_f32 + self.max.y() * 0.5_f32,
+            self.min.z() * 0.5_f32 + self.max.z() * 0.5_f32,
         )
     }
 
     fn largest_axis(&self) -> Axis {
         let diagonal = self.max - self.min;
-        if diagonal.x > diagonal.y && diagonal.x > diagonal.z {
+        if diagonal.x() > diagonal.y() && diagonal.x() > diagonal.z() {
             Axis::X
-        } else if diagonal.y > diagonal.z {
+        } else if diagonal.y() > diagonal.z() {
             Axis::Y
         } else {
             Axis::Z
@@ -463,7 +463,10 @@ impl AABB {
 
     fn surface_area(&self) -> f32 {
         let diagonal = self.max - self.min;
-        2_f32 * (diagonal.x * diagonal.y + diagonal.x * diagonal.z + diagonal.y * diagonal.z)
+        2_f32
+            * (diagonal.x() * diagonal.y()
+                + diagonal.x() * diagonal.z()
+                + diagonal.y() * diagonal.z())
     }
 
     fn intersect(&self, r: &Ray, t_min: f32, t_max: f32) -> bool {

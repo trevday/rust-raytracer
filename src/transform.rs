@@ -32,9 +32,9 @@ impl Transform {
 
     pub fn create_matrix(&self) -> Matrix4 {
         return Matrix4::new_translation(&self.translate)
-            * Matrix4::new_rotation_x(self.rotate.x)
-            * Matrix4::new_rotation_y(self.rotate.y)
-            * Matrix4::new_rotation_z(self.rotate.z)
+            * Matrix4::new_rotation_x(self.rotate.x())
+            * Matrix4::new_rotation_y(self.rotate.y())
+            * Matrix4::new_rotation_z(self.rotate.z())
             * Matrix4::new_scale(&self.scale);
     }
 }

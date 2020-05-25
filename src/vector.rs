@@ -1,14 +1,12 @@
+use crate::base::BasicThreeTuple;
+
 use serde::Deserialize;
 use std::convert;
 use std::ops;
 
 #[derive(Deserialize)]
 #[serde(try_from = "Vec<f32>")]
-pub struct Vector3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
+pub struct Vector3(pub BasicThreeTuple<f32>);
 
 // Vector3 implements the Copy trait because it is a small, constant piece
 // of data. Vector3's are, ideally, not widely mutated. The compiler
@@ -25,51 +23,43 @@ impl Clone for Vector3 {
     }
 }
 
-// Short functions in this file should always be inlined by the compiler.
-// https://doc.rust-lang.org/1.25.0/reference/attributes.html#inline-attribute
 impl Vector3 {
     pub fn new_empty() -> Vector3 {
-        Vector3 {
-            x: 0_f32,
-            y: 0_f32,
-            z: 0_f32,
-        }
+        Vector3(BasicThreeTuple::new(0_f32, 0_f32, 0_f32))
     }
 
     pub fn new_identity() -> Vector3 {
-        Vector3 {
-            x: 1_f32,
-            y: 1_f32,
-            z: 1_f32,
-        }
+        Vector3(BasicThreeTuple::new(1_f32, 1_f32, 1_f32))
     }
 
     pub fn new(x: f32, y: f32, z: f32) -> Vector3 {
-        Vector3 { x: x, y: y, z: z }
+        Vector3(BasicThreeTuple::new(x, y, z))
+    }
+
+    pub fn x(&self) -> f32 {
+        self.0.x
+    }
+    pub fn y(&self) -> f32 {
+        self.0.y
+    }
+    pub fn z(&self) -> f32 {
+        self.0.z
     }
 
     pub fn min(v1: Vector3, v2: Vector3) -> Vector3 {
-        Vector3 {
-            x: if v1.x < v2.x { v1.x } else { v2.x },
-            y: if v1.y < v2.y { v1.y } else { v2.y },
-            z: if v1.z < v2.z { v1.z } else { v2.z },
-        }
+        Vector3(BasicThreeTuple::min(v1.0, v2.0))
     }
 
     pub fn max(v1: Vector3, v2: Vector3) -> Vector3 {
-        Vector3 {
-            x: if v1.x > v2.x { v1.x } else { v2.x },
-            y: if v1.y > v2.y { v1.y } else { v2.y },
-            z: if v1.z > v2.z { v1.z } else { v2.z },
-        }
+        Vector3(BasicThreeTuple::max(v1.0, v2.0))
     }
 
     pub fn dot(self, other: Vector3) -> f32 {
-        (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+        (self.x() * other.x()) + (self.y() * other.y()) + (self.z() * other.z())
     }
 
     pub fn squared_length(self) -> f32 {
-        (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
+        (self.x() * self.x()) + (self.y() * self.y()) + (self.z() * self.z())
     }
 
     pub fn length(self) -> f32 {
@@ -81,99 +71,75 @@ impl Vector3 {
     }
 
     pub fn cross(self, other: Vector3) -> Vector3 {
-        Vector3 {
-            x: (self.y * other.z) - (self.z * other.y),
-            y: (self.z * other.x) - (self.x * other.z),
-            z: (self.x * other.y) - (self.y * other.x),
-        }
+        Vector3(BasicThreeTuple::new(
+            (self.y() * other.z()) - (self.z() * other.y()),
+            (self.z() * other.x()) - (self.x() * other.z()),
+            (self.x() * other.y()) - (self.y() * other.x()),
+        ))
     }
 }
 
 impl ops::Add for Vector3 {
     type Output = Vector3;
     fn add(self, rhs: Vector3) -> Vector3 {
-        Vector3 {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            z: self.z + rhs.z,
-        }
+        Vector3(self.0.add(rhs.0))
     }
 }
 
 impl ops::Sub for Vector3 {
     type Output = Vector3;
     fn sub(self, rhs: Vector3) -> Vector3 {
-        Vector3 {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-            z: self.z - rhs.z,
-        }
+        Vector3(self.0.sub(rhs.0))
     }
 }
 
 impl ops::Neg for Vector3 {
     type Output = Vector3;
     fn neg(self) -> Vector3 {
-        Vector3 {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-        }
+        Vector3(self.0.neg())
     }
 }
 
 impl ops::Mul for Vector3 {
     type Output = Vector3;
     fn mul(self, rhs: Vector3) -> Vector3 {
-        Vector3 {
-            x: self.x * rhs.x,
-            y: self.y * rhs.y,
-            z: self.z * rhs.z,
-        }
+        Vector3(self.0.mul(rhs.0))
     }
 }
 
 impl ops::Mul<f32> for Vector3 {
     type Output = Vector3;
     fn mul(self, rhs: f32) -> Vector3 {
-        Vector3 {
-            x: self.x * rhs,
-            y: self.y * rhs,
-            z: self.z * rhs,
-        }
+        Vector3(self.0.mul(rhs))
     }
 }
 
 impl ops::Mul<Vector3> for f32 {
     type Output = Vector3;
     fn mul(self, rhs: Vector3) -> Vector3 {
-        Vector3 {
-            x: self * rhs.x,
-            y: self * rhs.y,
-            z: self * rhs.z,
-        }
+        Vector3(BasicThreeTuple::new(
+            self * rhs.x(),
+            self * rhs.y(),
+            self * rhs.z(),
+        ))
     }
 }
 
 impl ops::Div<f32> for Vector3 {
     type Output = Vector3;
     fn div(self, rhs: f32) -> Vector3 {
-        Vector3 {
-            x: self.x / rhs,
-            y: self.y / rhs,
-            z: self.z / rhs,
-        }
+        Vector3(self.0.div(rhs))
     }
 }
 
 impl ops::Div<Vector3> for f32 {
     type Output = Vector3;
     fn div(self, rhs: Vector3) -> Vector3 {
-        Vector3 {
-            x: self / rhs.x,
-            y: self / rhs.y,
-            z: self / rhs.z,
-        }
+        Vector3(BasicThreeTuple::new(
+            self / rhs.x(),
+            self / rhs.y(),
+            self / rhs.z(),
+        ))
     }
 }
 
@@ -206,9 +172,9 @@ impl ops::Index<Axis> for Vector3 {
     type Output = f32;
     fn index(&self, index: Axis) -> &f32 {
         match index {
-            Axis::X => &self.x,
-            Axis::Y => &self.y,
-            Axis::Z => &self.z,
+            Axis::X => &self.0.x,
+            Axis::Y => &self.0.y,
+            Axis::Z => &self.0.z,
         }
     }
 }

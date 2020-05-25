@@ -10,7 +10,7 @@ pub trait Texture {
     fn value(&self, u: f32, v: f32, p: &Point3) -> RGB;
     fn bump_value(&self, u: f32, v: f32, p: &Point3) -> f32 {
         let bump = self.value(u, v, p);
-        (bump.r + bump.g + bump.b) / 3.0_f32
+        (bump.r() + bump.g() + bump.b()) / 3.0_f32
     }
 }
 pub type SyncTexture = dyn Texture + Send + Sync;
@@ -57,7 +57,7 @@ impl Checker {
 impl Texture for Checker {
     fn value(&self, u: f32, v: f32, p: &Point3) -> RGB {
         let sines =
-            (self.repeat * p.x).sin() * (self.repeat * p.y).sin() * (self.repeat * p.z).sin();
+            (self.repeat * p.x()).sin() * (self.repeat * p.y()).sin() * (self.repeat * p.z()).sin();
         if sines < 0.0_f32 {
             self.odd.value(u, v, p)
         } else {

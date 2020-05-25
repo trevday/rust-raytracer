@@ -1,12 +1,10 @@
+use crate::base::BasicThreeTuple;
+
 use serde::Deserialize;
 use std::ops;
 
 #[derive(Deserialize)]
-pub struct RGB {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-}
+pub struct RGB(pub BasicThreeTuple<f32>);
 
 impl Copy for RGB {}
 impl Clone for RGB {
@@ -17,61 +15,48 @@ impl Clone for RGB {
 
 impl RGB {
     pub fn new(r: f32, g: f32, b: f32) -> RGB {
-        RGB { r: r, g: g, b: b }
+        RGB(BasicThreeTuple::new(r, g, b))
     }
 
     pub fn black() -> RGB {
-        RGB {
-            r: 0.0_f32,
-            g: 0.0_f32,
-            b: 0.0_f32,
-        }
+        RGB(BasicThreeTuple::new(0_f32, 0_f32, 0_f32))
+    }
+
+    pub fn r(&self) -> f32 {
+        self.0.x
+    }
+    pub fn g(&self) -> f32 {
+        self.0.y
+    }
+    pub fn b(&self) -> f32 {
+        self.0.z
     }
 }
 
-// TODO: See if there is a way to reduce duplication of common functions for these
-// "three float" structures, like Point, Vector, and RGB, but while maintaining
-// the strong types.
 impl ops::Mul for RGB {
     type Output = RGB;
     fn mul(self, rhs: RGB) -> RGB {
-        RGB {
-            r: self.r * rhs.r,
-            g: self.g * rhs.g,
-            b: self.b * rhs.b,
-        }
+        RGB(self.0.mul(rhs.0))
     }
 }
 
 impl ops::Add for RGB {
     type Output = RGB;
     fn add(self, rhs: RGB) -> RGB {
-        RGB {
-            r: self.r + rhs.r,
-            g: self.g + rhs.g,
-            b: self.b + rhs.b,
-        }
+        RGB(self.0.add(rhs.0))
     }
 }
 
 impl ops::Mul<f32> for RGB {
     type Output = RGB;
     fn mul(self, rhs: f32) -> RGB {
-        RGB {
-            r: self.r * rhs,
-            g: self.g * rhs,
-            b: self.b * rhs,
-        }
+        RGB(self.0.mul(rhs))
     }
 }
 
 impl ops::Div<f32> for RGB {
     type Output = RGB;
     fn div(self, rhs: f32) -> RGB {
-        RGB {
-            r: self.r / rhs,
-            g: self.g / rhs,
-            b: self.b / rhs,
-        }
+        RGB(self.0.div(rhs))
     }
 }

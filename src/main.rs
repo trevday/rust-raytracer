@@ -1,5 +1,6 @@
 // Local modules
 mod aggregate;
+mod base;
 mod camera;
 mod color;
 mod material;
@@ -168,11 +169,11 @@ fn main() {
     for y in 0..res_y {
         for x in 0..res_x {
             let mut col = locked_colors[((x * res_y) + y) as usize] / samples as f32;
-            col = RGB::new(col.r.sqrt(), col.g.sqrt(), col.b.sqrt());
+            col = RGB::new(col.r().sqrt(), col.g().sqrt(), col.b().sqrt());
 
-            data.push((col.r * COLOR_SPACE) as u8);
-            data.push((col.g * COLOR_SPACE) as u8);
-            data.push((col.b * COLOR_SPACE) as u8);
+            data.push((col.r() * COLOR_SPACE) as u8);
+            data.push((col.g() * COLOR_SPACE) as u8);
+            data.push((col.b() * COLOR_SPACE) as u8);
         }
     }
     // Write the image to disk
@@ -246,7 +247,7 @@ fn thread_work(
 fn background(r: &Ray) -> RGB {
     // Sky blend
     let dir_normal = r.dir.normalized();
-    let t = 0.5_f32 * (dir_normal.y + 1.0_f32);
+    let t = 0.5_f32 * (dir_normal.y() + 1.0_f32);
 
     RGB::new(1.0_f32, 1.0_f32, 1.0_f32) * (1.0_f32 - t) + RGB::new(0.5_f32, 0.7_f32, 1.0_f32) * t
 }

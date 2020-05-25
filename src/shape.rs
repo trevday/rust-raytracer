@@ -89,20 +89,20 @@ impl Shape for Sphere {
         let mut hit_point = local_ray.point_at(t_hit);
         hit_point = hit_point * (self.radius.abs() / (hit_point - Point3::origin()).length());
 
-        let theta = utils::clamp(hit_point.y / self.radius, -1.0_f32, 1.0_f32).asin();
+        let theta = utils::clamp(hit_point.y() / self.radius, -1.0_f32, 1.0_f32).asin();
         let inverse_y_radius = (self.radius.signum() * 1.0_f32)
-            / (hit_point.x * hit_point.x + hit_point.z * hit_point.z).sqrt();
+            / (hit_point.x() * hit_point.x() + hit_point.z() * hit_point.z()).sqrt();
 
         let pu = Vector3::new(
-            2.0_f32 * f32::consts::PI * hit_point.z,
+            2.0_f32 * f32::consts::PI * hit_point.z(),
             0.0_f32,
-            -2.0_f32 * f32::consts::PI * hit_point.x,
+            -2.0_f32 * f32::consts::PI * hit_point.x(),
         );
         let pv = (-f32::consts::PI)
             * Vector3::new(
-                hit_point.y * hit_point.x * inverse_y_radius,
+                hit_point.y() * hit_point.x() * inverse_y_radius,
                 (-self.radius) * theta.cos(),
-                hit_point.y * hit_point.z * inverse_y_radius,
+                hit_point.y() * hit_point.z() * inverse_y_radius,
             );
 
         HitProperties {
@@ -112,7 +112,7 @@ impl Shape for Sphere {
                 * ((local_ray.point_at(t_hit) - Point3::origin()) / self.radius))
                 .normalized(),
 
-            u: (1.0_f32 - ((hit_point.z.atan2(hit_point.x) + f32::consts::PI) * ONE_OVER_2_PI)),
+            u: (1.0_f32 - ((hit_point.z().atan2(hit_point.x()) + f32::consts::PI) * ONE_OVER_2_PI)),
             v: ((theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
 
             pu: &self.local_to_world * pu,
@@ -375,10 +375,12 @@ impl Shape for Triangle {
                 pv = Vector3::new_empty();
             } else {
                 ng = ng.normalized();
-                if ng.x.abs() > ng.y.abs() {
-                    pu = Vector3::new(-ng.z, 0.0_f32, ng.x) / (ng.x * ng.x + ng.z * ng.z).sqrt();
+                if ng.x().abs() > ng.y().abs() {
+                    pu = Vector3::new(-ng.z(), 0.0_f32, ng.x())
+                        / (ng.x() * ng.x() + ng.z() * ng.z()).sqrt();
                 } else {
-                    pu = Vector3::new(0.0_f32, ng.z, -ng.y) / (ng.y * ng.y + ng.z * ng.z).sqrt();
+                    pu = Vector3::new(0.0_f32, ng.z(), -ng.y())
+                        / (ng.y() * ng.y() + ng.z() * ng.z()).sqrt();
                 }
                 pv = ng.cross(pu);
             }

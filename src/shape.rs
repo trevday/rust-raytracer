@@ -143,8 +143,12 @@ impl Shape for Sphere {
         };
 
         let local_ray = &self.world_to_local * r;
-        let cos_theta_max = (1.0_f32
-            - self.radius * self.radius / (Point3::origin() - local_ray.origin).squared_length())
+        let cos_theta_max = utils::float_max(
+            1.0_f32
+                - self.radius * self.radius
+                    / (Point3::origin() - local_ray.origin).squared_length(),
+            0.0_f32,
+        )
         .sqrt();
         let solid_angle = 2.0_f32 * f32::consts::PI * (1.0_f32 - cos_theta_max);
         return 1.0_f32 / solid_angle;

@@ -16,16 +16,11 @@ fn reflect(v: Vector3, n: Vector3) -> Vector3 {
     v - 2.0_f32 * v.dot(n) * n
 }
 
-fn refract(v: &Vector3, n: &Vector3, refracted_index: f32) -> Option<Vector3> {
-    let normalized = v.normalized();
-    let dt = normalized.dot(*n);
-    let discriminant = 1.0_f32 - refracted_index * refracted_index * (1.0_f32 - dt * dt);
-
-    if discriminant > 0.0_f32 {
-        Some(refracted_index * (normalized - (*n) * dt) - (*n) * discriminant.sqrt())
-    } else {
-        None
-    }
+fn refract(v: Vector3, n: Vector3, refracted_index: f32) -> Vector3 {
+    let cos_theta = (-v).dot(n);
+    let r_out_parallel = refracted_index * (v + cos_theta * n);
+    let r_out_perp = (-(1.0_f32 - r_out_parallel.squared_length()).sqrt()) * n;
+    return r_out_parallel + r_out_perp;
 }
 
 fn schlick(cosine: f32, index: f32) -> f32 {
@@ -172,44 +167,39 @@ pub struct Dielectric {
 
 impl Material for Dielectric {
     fn scatter(&self, in_ray: &Ray, hit_props: &HitProperties) -> Option<ScatterProperties> {
-        let normal_dot = in_ray.dir.dot(hit_props.normal);
-
-        let (outward_normal, index, cosine) = if normal_dot > 0.0_f32 {
-            let normal_dot_div = normal_dot / in_ray.dir.length();
-            (
-                -(hit_props.normal),
-                self.refractive_index,
-                (1.0_f32
-                    - self.refractive_index
-                        * self.refractive_index
-                        * (1.0_f32 - normal_dot_div * normal_dot_div))
-                    .sqrt(),
-            )
+        let attenuation = RGB::new(1.0_f32, 1.0_f32, 1.0_f32); // Attenuation is perfect
+        let (etai_over_etat, normal_for_use) = if in_ray.dir.dot(hit_props.normal) < 0.0_f32 {
+            (1.0 / self.refractive_index, hit_props.normal)
         } else {
-            (
-                hit_props.normal,
-                1.0_f32 / self.refractive_index,
-                -normal_dot / in_ray.dir.length(),
-            )
+            (self.refractive_index, -hit_props.normal)
         };
 
-        let out_ray = match refract(&in_ray.dir, &outward_normal, index) {
-            Some(refracted) => {
-                let prob = schlick(cosine, self.refractive_index);
+        let unit_direction = in_ray.dir.normalized();
+        let cos_theta = utils::float_min((-unit_direction).dot(normal_for_use), 1.0_f32);
+        let sin_theta = (1.0_f32 - cos_theta * cos_theta).sqrt();
 
-                if rand::random::<f32>() < prob {
-                    Ray::new(hit_props.hit_point, reflect(in_ray.dir, hit_props.normal))
-                } else {
-                    Ray::new(hit_props.hit_point, refracted)
-                }
-            }
-            None => Ray::new(hit_props.hit_point, reflect(in_ray.dir, hit_props.normal)),
-        };
+        if etai_over_etat * sin_theta > 1.0_f32 {
+            let reflected = reflect(unit_direction, normal_for_use);
+            return Some(ScatterProperties {
+                reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, reflected)),
+                attenuation: attenuation,
+            });
+        }
 
-        Some(ScatterProperties {
-            reflectance: Reflectance::Specular(out_ray),
-            attenuation: RGB::new(1.0_f32, 1.0_f32, 1.0_f32), // Attenuation is perfect
-        })
+        let reflect_prob = schlick(cos_theta, etai_over_etat);
+        if rand::random::<f32>() < reflect_prob {
+            let reflected = reflect(unit_direction, normal_for_use);
+            return Some(ScatterProperties {
+                reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, reflected)),
+                attenuation: attenuation,
+            });
+        }
+
+        let refracted = refract(unit_direction, normal_for_use, etai_over_etat);
+        return Some(ScatterProperties {
+            reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, refracted)),
+            attenuation: attenuation,
+        });
     }
 
     fn is_important(&self) -> bool {

@@ -38,11 +38,12 @@ pub fn random_cosine_direction() -> Vector3 {
 pub fn random_to_sphere(radius: f32, distance_squared: f32) -> Vector3 {
     let r1 = rand::random::<f32>();
     let r2 = rand::random::<f32>();
-    let z = 1.0_f32 + r2 * ((1.0_f32 - radius * radius / distance_squared).sqrt() - 1.0_f32);
+    let z = 1.0_f32
+        + r2 * (float_max(1.0_f32 - radius * radius / distance_squared, 0.0_f32).sqrt() - 1.0_f32);
 
     let phi = 2.0_f32 * f32::consts::PI * r1;
-    let x = phi.cos() * (1.0_f32 - z * z).sqrt();
-    let y = phi.sin() * (1.0_f32 - z * z).sqrt();
+    let x = phi.cos() * float_max(1.0_f32 - z * z, 0.0_f32).sqrt();
+    let y = phi.sin() * float_max(1.0_f32 - z * z, 0.0_f32).sqrt();
 
     Vector3::new(x, y, z)
 }
@@ -54,6 +55,22 @@ pub fn clamp(v: f32, min: f32, max: f32) -> f32 {
         min
     } else {
         v
+    }
+}
+
+pub fn float_max(f: f32, max: f32) -> f32 {
+    if f > max {
+        f
+    } else {
+        max
+    }
+}
+
+pub fn float_min(f: f32, min: f32) -> f32 {
+    if f < min {
+        f
+    } else {
+        min
     }
 }
 

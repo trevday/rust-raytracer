@@ -76,7 +76,11 @@ fn main() {
 
     // Read the scene spec file
     let mut res = Resources::new();
-    let scene_spec_path = path::Path::new(matches.value_of("IN_SCENE_FILE").unwrap());
+    let scene_spec_path = path::Path::new(
+        matches
+            .value_of("IN_SCENE_FILE")
+            .expect("Need to specify an IN_SCENE_FILE argument"),
+    );
     let scene_str = fs::read_to_string(&scene_spec_path).expect("Failed to read scene spec file.");
     let scene_spec = Arc::new(
         scene::deserialize(
@@ -94,7 +98,11 @@ fn main() {
     let out_file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(matches.value_of("OUT_FILEPATH").unwrap())
+        .open(
+            matches
+                .value_of("OUT_FILEPATH")
+                .expect("Need to specify an OUT_FILEPATH argument"),
+        )
         .expect("Failed to create new file");
     let png_encoder = PNGEncoder::new(out_file);
 
@@ -155,7 +163,10 @@ fn main() {
     for t in threads {
         t.join().expect("Failed to finalize a tracing thread.");
     }
-    (*progress_tracker).lock().unwrap().done();
+    (*progress_tracker)
+        .lock()
+        .expect("Failed to lock the command line progress tracker from the main thread")
+        .done();
 
     // Once all tracing has been done, finalize data and convert to
     // 8 bit unsigned integer
@@ -235,7 +246,12 @@ fn thread_work(
         }
 
         {
-            thread_progress.lock().unwrap().update(1);
+            thread_progress
+                .lock()
+                .expect(
+                    "Failed to lock command line progress tracker from worker thread for update",
+                )
+                .update(1);
         }
     }
 }

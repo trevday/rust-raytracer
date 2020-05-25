@@ -15,6 +15,7 @@ const PROGRESS_PREFIX: &str = "\rProgress: <";
 const FILLED_CHAR: char = '#';
 const EMPTY_CHAR: char = ' ';
 
+// TODO: Bubble errors through Result rather than use unwrap()
 impl Progress {
     pub fn new(
         total_work: u64,

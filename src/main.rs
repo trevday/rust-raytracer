@@ -29,14 +29,11 @@ use std::{
 };
 
 // Use statements for local modules
-use crate::color::RGB;
+use crate::color::{COLOR_SPACE, RGB};
 use crate::progress::Progress;
 use crate::ray::Ray;
 use crate::resources::Resources;
 use crate::scene::Scene;
-
-// Constants
-const COLOR_SPACE: f32 = 255.99_f32;
 
 fn main() {
     // Define command line args

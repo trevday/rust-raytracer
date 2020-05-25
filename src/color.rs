@@ -3,6 +3,8 @@ use crate::base::BasicThreeTuple;
 use serde::Deserialize;
 use std::ops;
 
+pub const COLOR_SPACE: f32 = 255.99_f32;
+
 #[derive(Deserialize)]
 pub struct RGB(pub BasicThreeTuple<f32>);
 

@@ -131,12 +131,12 @@ impl Texture for Image {
         let i = (uv.u() * self.img.width() as f32) as u32 % self.img.width();
         let j = ((1_f32 - uv.v()) * self.img.height() as f32) as u32 % self.img.height();
         let pixel = self.img.get_pixel(i, j);
-        // TODO: Probably need to undo gamma correction here after reading the image
         RGB::new(
             pixel[0] as f32 / 255_f32,
             pixel[1] as f32 / 255_f32,
             pixel[2] as f32 / 255_f32,
         )
+        .inverse_gamma_correct()
     }
 }
 

@@ -31,6 +31,14 @@ impl RGB {
     pub fn b(&self) -> f32 {
         self.0.z
     }
+
+    pub fn gamma_correct(&self) -> RGB {
+        RGB::new(self.r().sqrt(), self.g().sqrt(), self.b().sqrt())
+    }
+
+    pub fn inverse_gamma_correct(self) -> RGB {
+        self * self
+    }
 }
 
 impl ops::Mul for RGB {

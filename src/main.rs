@@ -169,7 +169,7 @@ fn main() {
     for y in 0..res_y {
         for x in 0..res_x {
             let mut col = locked_colors[((x * res_y) + y) as usize] / samples as f32;
-            col = RGB::new(col.r().sqrt(), col.g().sqrt(), col.b().sqrt());
+            col = col.gamma_correct();
 
             data.push((col.r() * COLOR_SPACE) as u8);
             data.push((col.g() * COLOR_SPACE) as u8);

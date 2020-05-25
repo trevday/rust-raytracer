@@ -30,9 +30,7 @@ impl Material for Isotropic {
             // TODO: Technically not correct, this volume is not specular, but for now
             // I just want it to not use a PDF
             reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, unit_sphere_random())),
-            attenuation: self
-                .albedo
-                .value(hit_props.u, hit_props.v, &hit_props.hit_point),
+            attenuation: self.albedo.value(&hit_props.uv, &hit_props.hit_point),
         })
     }
 

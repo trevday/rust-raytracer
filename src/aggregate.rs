@@ -28,8 +28,7 @@ pub fn trace(
             // Some if we have a hit
             Some((s, t)) => {
                 let mut hit_props = s.get_hit_properties(r, t);
-                hit_props.u = utils::clamp(hit_props.u, 0_f32, 1_f32);
-                hit_props.v = utils::clamp(hit_props.v, 0_f32, 1_f32);
+                hit_props.uv = hit_props.uv.clamp_to_valid_coords();
 
                 match s.get_material().emit(r, &hit_props) {
                     Some(e) => {

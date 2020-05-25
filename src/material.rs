@@ -4,6 +4,7 @@ use crate::pdf::PDF;
 use crate::ray::Ray;
 use crate::shape::HitProperties;
 use crate::texture::SyncTexture;
+use crate::texture::TexCoord;
 use crate::utils;
 use crate::vector::Vector3;
 
@@ -32,17 +33,15 @@ fn schlick(cosine: f32, index: f32) -> f32 {
 const BUMP_DELTA: f32 = 0.005_f32; // TODO: Make bump delta dynamic
 fn bump_modify(hit_props: &HitProperties, bump_map: &SyncTexture) -> Vector3 {
     // Get base value of bump at u, v, p
-    let displacement = bump_map.bump_value(hit_props.u, hit_props.v, &hit_props.hit_point);
+    let displacement = bump_map.bump_value(&hit_props.uv, &hit_props.hit_point);
     // Create partial derivatives for bump
     // by shifting u, v, and p
     let displacement_u = bump_map.bump_value(
-        hit_props.u + BUMP_DELTA,
-        hit_props.v,
+        &TexCoord::new(hit_props.uv.u() + BUMP_DELTA, hit_props.uv.v()),
         &(hit_props.hit_point + BUMP_DELTA * hit_props.pu),
     );
     let displacement_v = bump_map.bump_value(
-        hit_props.u,
-        hit_props.v + BUMP_DELTA,
+        &TexCoord::new(hit_props.uv.u(), hit_props.uv.v() + BUMP_DELTA),
         &(hit_props.hit_point + BUMP_DELTA * hit_props.pv),
     );
 
@@ -106,9 +105,7 @@ impl Material for Lambert {
 
         Some(ScatterProperties {
             reflectance: Reflectance::PDF(PDF::Cosine(pdf::Cosine::new(bump_modified_normal))),
-            attenuation: self
-                .albedo
-                .value(hit_props.u, hit_props.v, &hit_props.hit_point),
+            attenuation: self.albedo.value(&hit_props.uv, &hit_props.hit_point),
         })
     }
 
@@ -158,9 +155,7 @@ impl Material for Metal {
 
         Some(ScatterProperties {
             reflectance: Reflectance::Specular(Ray::new(hit_props.hit_point, out_ray_dir)),
-            attenuation: self
-                .albedo
-                .value(hit_props.u, hit_props.v, &hit_props.hit_point),
+            attenuation: self.albedo.value(&hit_props.uv, &hit_props.hit_point),
         })
     }
 
@@ -232,10 +227,7 @@ impl Material for DiffuseLight {
     }
 
     fn emit(&self, _in_ray: &Ray, hit_props: &HitProperties) -> Option<RGB> {
-        Some(
-            self.emission
-                .value(hit_props.u, hit_props.v, &hit_props.hit_point),
-        )
+        Some(self.emission.value(&hit_props.uv, &hit_props.hit_point))
     }
 
     fn is_important(&self) -> bool {

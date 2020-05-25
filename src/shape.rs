@@ -3,6 +3,7 @@ use crate::material::SyncMaterial;
 use crate::matrix::Matrix4;
 use crate::point::Point3;
 use crate::ray::Ray;
+use crate::texture::TexCoord;
 use crate::utils;
 use crate::vector::Vector3;
 
@@ -12,8 +13,7 @@ use std::sync::Arc;
 pub struct HitProperties {
     pub hit_point: Point3,
     pub normal: Vector3,
-    pub u: f32,
-    pub v: f32,
+    pub uv: TexCoord,
     pub pu: Vector3,
     pub pv: Vector3,
 }
@@ -112,8 +112,10 @@ impl Shape for Sphere {
                 * ((local_ray.point_at(t_hit) - Point3::origin()) / self.radius))
                 .normalized(),
 
-            u: (1.0_f32 - ((hit_point.z().atan2(hit_point.x()) + f32::consts::PI) * ONE_OVER_2_PI)),
-            v: ((theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI),
+            uv: TexCoord::new(
+                1.0_f32 - ((hit_point.z().atan2(hit_point.x()) + f32::consts::PI) * ONE_OVER_2_PI),
+                (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI,
+            ),
 
             pu: &self.local_to_world * pu,
             pv: &self.local_to_world * pv,
@@ -165,8 +167,7 @@ impl Shape for Sphere {
 
 pub struct TriangleMesh {
     vertices: Vec<Point3>,
-    // TODO: Decide if I have enough need for a real Vector2 struct.
-    tex_coords: Vec<(f32, f32)>,
+    tex_coords: Vec<TexCoord>,
     enable_backface_culling: bool,
     material: Arc<SyncMaterial>,
 }
@@ -174,7 +175,7 @@ pub struct TriangleMesh {
 impl TriangleMesh {
     pub fn new(
         vertices: Vec<Point3>,
-        tex_coords: Vec<(f32, f32)>,
+        tex_coords: Vec<TexCoord>,
         enable_backface_culling: bool,
         material: Arc<SyncMaterial>,
     ) -> TriangleMesh {
@@ -337,35 +338,38 @@ impl Shape for Triangle {
 
         let w = 1.0_f32 - u - v;
 
-        let (u0, v0) = match self.t0 {
+        let uv0 = match self.t0 {
             Some(t) => self.triangle_mesh.tex_coords[t],
-            None => (0_f32, 0_f32),
+            None => TexCoord::new(0_f32, 0_f32),
         };
-        let (u1, v1) = match self.t1 {
+        let uv1 = match self.t1 {
             Some(t) => self.triangle_mesh.tex_coords[t],
-            None => (1_f32, 0_f32),
+            None => TexCoord::new(1_f32, 0_f32),
         };
-        let (u2, v2) = match self.t2 {
+        let uv2 = match self.t2 {
             Some(t) => self.triangle_mesh.tex_coords[t],
-            None => (1_f32, 1_f32),
+            None => TexCoord::new(1_f32, 1_f32),
         };
 
         // Apply to UV coordinates from mesh
-        let (u, v) = ((u0 * u + u1 * v + u2 * w), (v0 * u + v1 * v + v2 * w));
+        let uv = TexCoord::new(
+            uv0.u() * u + uv1.u() * v + uv2.u() * w,
+            uv0.v() * u + uv1.v() * v + uv2.v() * w,
+        );
 
         // TODO: Pre-calculate and cache the partial derivatives for each triangle?
         let mut pu = Vector3::new_empty();
         let mut pv = Vector3::new_empty();
-        let (du02, dv02) = ((u0 - u2), (v0 - v2));
-        let (du12, dv12) = ((u1 - u2), (v1 - v2));
+        let duv02 = uv0 - uv2;
+        let duv12 = uv1 - uv2;
         let dp02 = vertex0 - vertex2;
         let dp12 = vertex1 - vertex2;
-        let uv_determinant = du02 * dv12 - dv02 * du12;
+        let uv_determinant = duv02.u() * duv12.v() - duv02.v() * duv12.u();
         let degenerate_uv = uv_determinant.abs() < std::f32::EPSILON;
         if !degenerate_uv {
             let inv_det = 1.0_f32 / uv_determinant;
-            pu = (dv12 * dp02 - dv02 * dp12) * inv_det;
-            pv = (-du12 * dp02 + du02 * dp12) * inv_det;
+            pu = (duv12.v() * dp02 - duv02.v() * dp12) * inv_det;
+            pv = (-duv12.u() * dp02 + duv02.u() * dp12) * inv_det;
         }
         if degenerate_uv || pu.cross(pv).squared_length() == 0.0_f32 {
             let mut ng = (vertex2 - vertex0).cross(vertex1 - vertex0);
@@ -392,8 +396,7 @@ impl Shape for Triangle {
         HitProperties {
             hit_point: r.point_at(t_hit),
             normal: normal,
-            u: u,
-            v: v,
+            uv: uv,
             pu: pu,
             pv: pv,
         }

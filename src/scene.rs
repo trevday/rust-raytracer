@@ -9,6 +9,7 @@ use crate::shape;
 use crate::shape::SyncShape;
 use crate::texture;
 use crate::texture::SyncTexture;
+use crate::texture::TexCoord;
 use crate::transform::Transform;
 use crate::volume;
 
@@ -504,7 +505,7 @@ fn deserialize_mesh(
         // Also need to convert the texture coordinates.
         let mut converted_tex_coords = Vec::with_capacity(object.tex_vertices.len());
         for tex in object.tex_vertices {
-            converted_tex_coords.push((tex.u as f32, tex.v as f32));
+            converted_tex_coords.push(TexCoord::new(tex.u as f32, tex.v as f32));
         }
         // Create shared mesh, which all Triangles will reference.
         let t_mesh = Arc::new(shape::TriangleMesh::new(

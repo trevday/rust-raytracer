@@ -1,0 +1,16 @@
+[package]
+name = "rust-raytracer"
+version = "1.0.0"
+authors = ["trevday <day.t@northeastern.edu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+image = "0.22.3"
+rand = "0.7.3"
+serde = { version = "1.0.104", features = ["derive", "rc"] }
+serde_json = "1.0.47"
+typetag = "0.1.4"
+wavefront_obj = "7.0.0"
+clap = "2.33.1"

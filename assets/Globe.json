@@ -1,0 +1,60 @@
+{
+	"Logistics": {
+		"resolution_x": 500,
+		"resolution_y": 500,
+		"samples": 1000
+	},
+	"Camera": {
+		"position": [
+			0,
+			0,
+			1
+		],
+		"look_at": [
+			0,
+			0,
+			0
+		],
+		"up": [
+			0,
+			1,
+			0
+		],
+		"fov": 90,
+		"aspect_ratio": 1,
+		"aperture": 0,
+		"focus_distance": 1
+	},
+	"Textures": {
+		"World": {
+			"type": "Image",
+			"image_path": "earthmap1k.jpg"
+		},
+		"WorldBump": {
+			"type": "Image",
+			"image_path": "earthbump1k.jpg"
+		}
+	},
+	"Materials": {
+		"Lambert1": {
+			"type": "Lambert",
+			"albedo": "World",
+			"bump_map": "WorldBump"
+		}
+	},
+	"Aggregate": "BVH",
+	"Shapes": [
+		{
+			"type": "Sphere",
+			"transform": {
+				"rotate": [
+					0,
+					-10,
+					0
+				]
+			},
+			"radius": 0.5,
+			"material": "Lambert1"
+		}
+	]
+}

@@ -1,0 +1,149 @@
+{
+	"Logistics": {
+		"resolution_x": 500,
+		"resolution_y": 500,
+		"samples": 200,
+		"use_importance_sampling": false
+	},
+	"Camera": {
+		"position": [
+			0,
+			0.75,
+			1
+		],
+		"look_at": [
+			0,
+			0.75,
+			0
+		],
+		"up": [
+			0,
+			1,
+			0
+		],
+		"fov": 90,
+		"aspect_ratio": 1,
+		"aperture": 0,
+		"focus_distance": 1
+	},
+	"Textures": {
+		"Checker1": {
+			"type": "Checker",
+			"repeat": 10,
+			"odd": {
+				"type": "Constant",
+				"color": [
+					1,
+					1,
+					1
+				]
+			},
+			"even": {
+				"type": "Constant",
+				"color": [
+					0,
+					0,
+					0
+				]
+			}
+		},
+		"Constant1": {
+			"type": "Constant",
+			"color": [
+				0.8,
+				0.2,
+				0.2
+			]
+		},
+		"Constant2": {
+			"type": "Constant",
+			"color": [
+				0.4,
+				0.4,
+				0.8
+			]
+		}
+	},
+	"Materials": {
+		"CheckerLambert": {
+			"type": "Lambert",
+			"albedo": "Checker1"
+		},
+		"Lambert1": {
+			"type": "Lambert",
+			"albedo": "Constant1"
+		},
+		"Metal1": {
+			"type": "Metal",
+			"albedo": "Constant2",
+			"roughness": 0.1
+		},
+		"Dielectric1": {
+			"type": "Dielectric",
+			"refractive_index": 1.5
+		}
+	},
+	"Aggregate": "BVH",
+	"Shapes": [
+		{
+			"type": "Sphere",
+			"transform": {
+				"translate": [
+					0,
+					-100.5,
+					-1
+				]
+			},
+			"radius": 100,
+			"material": "CheckerLambert"
+		},
+		{
+			"type": "Sphere",
+			"transform": {
+				"translate": [
+					-1.25,
+					0.75,
+					-1
+				]
+			},
+			"radius": 0.5,
+			"material": "Lambert1"
+		},
+		{
+			"type": "Sphere",
+			"transform": {
+				"translate": [
+					0,
+					0.75,
+					-1
+				]
+			},
+			"radius": 0.5,
+			"material": "Metal1"
+		},
+		{
+			"type": "Sphere",
+			"transform": {
+				"translate": [
+					1.25,
+					0.75,
+					-1
+				]
+			},
+			"radius": 0.5,
+			"material": "Dielectric1"
+		},
+		{
+			"type": "Sphere",
+			"transform": {
+				"translate": [
+					1.25,
+					0.75,
+					-1
+				]
+			},
+			"radius": -0.45,
+			"material": "Dielectric1"
+		}
+	]
+}

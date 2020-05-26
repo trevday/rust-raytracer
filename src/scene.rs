@@ -30,6 +30,7 @@ pub struct Logistics {
     pub resolution_x: u32,
     pub resolution_y: u32,
     pub samples: u32,
+    pub use_importance_sampling: Option<bool>,
 }
 
 // Package together third party library errors and
@@ -127,10 +128,13 @@ pub fn deserialize(
     }
 
     // Pull out any important shapes for sampling in a separate list
+    let use_importance_sampling = logistics.use_importance_sampling.unwrap_or(true);
     let mut samples = Vec::new();
-    for shape in &shapes {
-        if shape.get_material().is_important() {
-            samples.push(pdf::PDF::Shape(pdf::Shape::new(&shape)));
+    if use_importance_sampling {
+        for shape in &shapes {
+            if shape.get_material().is_important() {
+                samples.push(pdf::PDF::Shape(pdf::Shape::new(&shape)));
+            }
         }
     }
     let important_samples = Arc::new(pdf::PDF::Mixture(pdf::Mixture::new(samples)));

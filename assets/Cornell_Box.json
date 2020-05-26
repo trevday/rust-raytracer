@@ -2,7 +2,7 @@
 	"Logistics": {
 		"resolution_x": 500,
 		"resolution_y": 500,
-		"samples": 200
+		"samples": 1000
 	},
 	"Camera": {
 		"position": [
